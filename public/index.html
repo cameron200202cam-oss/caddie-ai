@@ -185,6 +185,25 @@
     .hero-cta,.features-strip{flex-direction:column;align-items:center;}
     .pricing-cards{flex-direction:column;}
   }
+
+  /* ── MOBILE RESPONSIVE ── */
+  @media(max-width:768px){
+    .app-nav{padding:0.7rem 1rem;flex-wrap:wrap;gap:0.5rem;}
+    .app-body{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+    .messages{padding:0.8rem 1rem;}
+    .input-area{padding:0.7rem 0.8rem 1rem;}
+    .welcome-screen{padding:2rem 1rem;}
+    .example-grid{grid-template-columns:1fr;}
+    .free-banner{font-size:0.7rem;flex-direction:column;gap:0.3rem;text-align:center;}
+    textarea{font-size:0.85rem;}
+  }
+  @media(max-width:480px){
+    .logo{font-size:1.2rem;}
+    .nav-right{gap:0.4rem;}
+    .tier-badge{font-size:0.55rem;padding:0.18rem 0.5rem;}
+  }
+
 </style>
 </head>
 <body>
@@ -293,6 +312,7 @@
       <button onclick="location.href='analyzer.html'" style="font-family:'DM Sans',sans-serif;font-size:0.72rem;font-weight:500;padding:0.35rem 0.8rem;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--muted);">📷 Analyzer</button>
       <button onclick="location.href='swing-detective.html'" style="font-family:'DM Sans',sans-serif;font-size:0.72rem;font-weight:500;padding:0.35rem 0.8rem;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--muted);">🔍 Detective</button>
       <button onclick="location.href='lie-whisperer.html'" style="font-family:'DM Sans',sans-serif;font-size:0.72rem;font-weight:500;padding:0.35rem 0.8rem;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--muted);">🌿 Lie</button>
+      <button onclick="location.href='settings.html'" style="font-family:'DM Sans',sans-serif;font-size:0.72rem;font-weight:500;padding:0.35rem 0.8rem;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--muted);">⚙️</button>
     </div>
     <div class="user-info">
       <div class="user-av" id="userAvatar">U</div>

@@ -182,6 +182,7 @@
     <button class="nav-tab" onclick="location.href='analyzer.html'">📷 Swing Analyzer</button>
     <button class="nav-tab" onclick="location.href='swing-detective.html'">🔍 Swing Detective</button>
     <button class="nav-tab active">🌿 Lie Whisperer</button>
+    <button class="nav-tab" onclick="location.href='settings.html'">⚙️ Settings</button>
   </div>
   <div class="nav-right">
     <span class="tier-badge tier-pro" id="tierBadge">PRO</span>
@@ -625,10 +626,125 @@ window.addEventListener('load', () => {
       <li>Unlimited Swing Analyzer photos</li>
       <li>Cancel anytime</li>
     </ul>
-    <button class="btn-go-pro" onclick="location.href='index.html#upgrade'">Upgrade to Pro — $9/mo</button>
+    <button class="btn-go-pro" onclick="openUpgradeModal()">Upgrade to Pro — $9/mo</button>
     <button class="btn-dismiss" onclick="document.getElementById('paywallModal').classList.remove('open')">Maybe later</button>
   </div>
 </div>
+
+
+<!-- Inline Payment Modal -->
+<div class="modal-overlay" id="upgradeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);">
+  <div style="background:#122218;border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2rem;max-width:400px;width:100%;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⛳</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:0.4rem;">Go <span style="color:#d4a94a;">Pro</span></div>
+    <div style="font-size:0.83rem;color:rgba(240,234,216,0.45);margin-bottom:1rem;line-height:1.5;">Unlimited access to all 4 features. Cancel anytime.</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#d4a94a;line-height:1;margin-bottom:1rem;"><sup style="font-size:1.1rem;">$</sup>9<sub style="font-size:0.9rem;color:rgba(240,234,216,0.45);">/mo</sub></div>
+    <div id="inline-pay-error" style="color:#e74c3c;font-size:0.8rem;margin-bottom:0.6rem;display:none;text-align:left;"></div>
+    <div id="inline-card-element" style="background:#1a2e20;border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:0.9rem 1rem;margin-bottom:1rem;text-align:left;"></div>
+    <button id="inline-pay-btn" onclick="handleInlinePayment()" style="width:100%;background:#d4a94a;color:#0b1a12;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;margin-bottom:0.8rem;">Subscribe — $9/mo</button>
+    <button onclick="closeUpgradeModal()" style="background:none;border:none;color:rgba(240,234,216,0.45);font-size:0.78rem;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;">Cancel</button>
+  </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+  const STRIPE_PK = 'pk_test_51TLAzuLnJDmWQ4Zyb2lmTPjodN3IkBV5wZepv3YnGG65Pr6H8VfTd0J3jCQ6juWodtPWqY9po2VyofaC5iV6FAuL00wKdpk9ob';
+  const API = 'https://caddie-ai-nine.vercel.app';
+  let _stripe = null;
+  let _card = null;
+
+  window.openUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'flex';
+    document.getElementById('paywallModal')?.classList.remove('open');
+    if (!_stripe) {
+      try {
+        _stripe = Stripe(STRIPE_PK);
+        const els = _stripe.elements();
+        _card = els.create('card', {
+          style: { base: { color:'#f0ead8', fontFamily:'DM Sans,sans-serif', fontSize:'16px', '::placeholder':{ color:'rgba(240,234,216,0.4)' } } }
+        });
+        _card.mount('#inline-card-element');
+      } catch(e) { console.error('Stripe init error', e); }
+    }
+  };
+
+  window.closeUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'none';
+  };
+
+  window.handleInlinePayment = async function() {
+    if (!_stripe || !_card) { alert('Payment system loading. Please try again.'); return; }
+    const btn = document.getElementById('inline-pay-btn');
+    const err = document.getElementById('inline-pay-error');
+    btn.disabled = true; btn.textContent = 'Processing...';
+    err.style.display = 'none';
+
+    const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+    const token = localStorage.getItem('caddie_token') || '';
+
+    try {
+      const { paymentMethod, error } = await _stripe.createPaymentMethod({
+        type: 'card', card: _card,
+        billing_details: { email: user.email, name: user.name }
+      });
+
+      if (error) {
+        err.textContent = error.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+        return;
+      }
+
+      const res = await fetch(`${API}/api/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ paymentMethodId: paymentMethod.id })
+      });
+
+      const data = await res.json();
+
+      if (data.requiresAction) {
+        const { error: ce } = await _stripe.confirmCardPayment(data.clientSecret);
+        if (ce) {
+          err.textContent = ce.message; err.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+          return;
+        }
+      }
+
+      if (data.success) {
+        user.isPro = true;
+        localStorage.setItem('caddie_user', JSON.stringify(user));
+        closeUpgradeModal();
+        // Update tier badge
+        const badge = document.getElementById('tierBadge');
+        if (badge) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+        // Hide free banner
+        const fb = document.getElementById('freeBanner');
+        if (fb) fb.style.display = 'none';
+        // Hide paywallModal if open
+        const pm = document.getElementById('paywallModal');
+        if (pm) pm.classList.remove('open');
+        alert('🎉 Welcome to Pro! Unlimited access unlocked. Refreshing...');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        err.textContent = data.error || 'Payment failed. Please check your card.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+      }
+    } catch(e) {
+      err.textContent = 'Something went wrong. Please try again.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+    }
+  };
+
+  // Close on overlay click
+  document.getElementById('upgradeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
+  });
+})();
+</script>
 
 </body>
 </html>
