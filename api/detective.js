@@ -1,144 +1,85 @@
-// api/detective.js
-// Swing Detective — forensic symptom-based diagnosis
+// api/detective.js — Swing Detective using Vercel Postgres
 
 const Anthropic = require("@anthropic-ai/sdk");
-const { createClient } = require("@supabase/supabase-js");
 const jwt = require("jsonwebtoken");
+const { query, setupDB } = require("./_db");
 
-const ALLOWED_BALL_FLIGHTS = ["Slice", "Hook", "Push", "Pull", "Thin", "Fat"];
-const FREE_DAILY_LIMIT = 2;
-
-const SYSTEM_PROMPT = `You are a forensic golf swing analyst. A golfer tells you what happened after a bad shot — you diagnose the root cause like a detective using ball flight laws.
-
-Respond ONLY with valid JSON in this exact format:
+const SYSTEM_PROMPT = `You are a forensic golf swing analyst. Diagnose golf shot problems from symptoms. Respond ONLY with valid JSON:
 {
-  "primaryCause": "Short name of the #1 cause (max 4 words)",
+  "primaryCause": "Short name of #1 cause",
   "confidence": 82,
   "summary": "One confident sentence about the main fault",
   "causes": [
-    { "rank": 1, "name": "Lead Hip Stalling", "probability": 82, "explanation": "What this means and why it produces this exact ball flight + divot + contact combo" },
-    { "rank": 2, "name": "Early Release", "probability": 60, "explanation": "Second most likely cause with explanation" },
+    { "rank": 1, "name": "Lead Hip Stalling", "probability": 82, "explanation": "Why this produces this ball flight" },
+    { "rank": 2, "name": "Early Release", "probability": 60, "explanation": "Second cause" },
     { "rank": 3, "name": "Setup Issue", "probability": 35, "explanation": "Third possibility" }
   ],
-  "drill": {
-    "name": "Drill name",
-    "duration": "30 seconds",
-    "description": "Specific drill they can do on the course or range right now. 2-3 sentences. Be specific."
-  },
-  "onTheCourse": "One immediate swing thought for their very next shot. One sentence, keep it simple."
+  "drill": { "name": "Drill name", "duration": "30 seconds", "description": "Specific drill for right now. 2-3 sentences." },
+  "onTheCourse": "One immediate swing thought. One sentence."
 }
-
-Rules: confidence is 0-100 integer. Cause probabilities are 0-100. Be specific and direct. No hedging. JSON only.`;
+JSON only.`;
 
 module.exports = async function handler(req, res) {
-  // Security headers
-  res.setHeader("Access-Control-Allow-Origin", process.env.ALLOWED_ORIGIN || "*");
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 1. Auth
-    const token = extractToken(req);
-    if (!token) return res.status(401).json({ error: "Authentication required" });
+    const token = (req.headers.authorization || "").replace("Bearer ", "").trim();
+    if (!token) return res.status(401).json({ error: "Not authenticated" });
 
     let userId;
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       userId = decoded.userId;
-    } catch {
-      return res.status(401).json({ error: "Invalid or expired session. Please log in again." });
-    }
+    } catch { return res.status(401).json({ error: "Invalid token" }); }
 
-    // 2. Input validation
-    const { symptoms } = req.body || {};
-    if (!symptoms || typeof symptoms !== "object") {
-      return res.status(400).json({ error: "Missing symptoms data" });
-    }
+    await setupDB();
 
-    const { ballFlight, divotPattern, contactPoint, club } = symptoms;
-    if (!ballFlight || !divotPattern || !contactPoint) {
-      return res.status(400).json({ error: "All three symptoms are required" });
-    }
-
-    // Sanitize inputs
-    const safeBallFlight = String(ballFlight).slice(0, 100);
-    const safeDivot = String(divotPattern).slice(0, 100);
-    const safeContact = String(contactPoint).slice(0, 100);
-    const safeClub = String(club || "Not specified").slice(0, 50);
-
-    // 3. DB + rate limiting
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
-
-    const { data: user } = await supabase
-      .from("users")
-      .select("id, is_pro")
-      .eq("id", userId)
-      .single();
-
+    const userResult = await query("SELECT id, is_pro FROM users WHERE id = $1", [userId]);
+    const user = userResult.rows[0];
     if (!user) return res.status(401).json({ error: "User not found" });
 
     if (!user.is_pro) {
       const today = new Date().toISOString().split("T")[0];
-      const { count } = await supabase
-        .from("questions")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .gte("created_at", `${today}T00:00:00.000Z`);
-
-      if (count >= FREE_DAILY_LIMIT) {
-        return res.status(402).json({
-          error: "free_limit_reached",
-          message: "You've used your free questions for today. Upgrade to Pro for unlimited access.",
-        });
+      const countResult = await query(
+        "SELECT COUNT(*) FROM questions WHERE user_id = $1 AND created_at >= $2",
+        [userId, `${today}T00:00:00.000Z`]
+      );
+      if (parseInt(countResult.rows[0].count) >= 2) {
+        return res.status(402).json({ error: "free_limit_reached", message: "Upgrade to Pro for unlimited access." });
       }
     }
 
-    // 4. Call AI
+    const { symptoms } = req.body || {};
+    if (!symptoms) return res.status(400).json({ error: "Missing symptoms" });
+
+    const { ballFlight, divotPattern, contactPoint, club } = symptoms;
+    const safeBallFlight = String(ballFlight || "").slice(0, 100);
+    const safeDivot = String(divotPattern || "").slice(0, 100);
+    const safeContact = String(contactPoint || "").slice(0, 100);
+    const safeClub = String(club || "Not specified").slice(0, 50);
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    const prompt = `Diagnose this golf shot based on the symptoms:
-Ball flight: ${safeBallFlight}
-Divot pattern: ${safeDivot}
-Contact point: ${safeContact}
-Club used: ${safeClub}
-
-Use ball flight laws to identify the most likely swing fault. Give me a probability-ranked diagnosis.`;
-
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 900,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: `Ball flight: ${safeBallFlight}\nDivot: ${safeDivot}\nContact: ${safeContact}\nClub: ${safeClub}` }]
     });
 
     const diagnosisText = response.content[0].text;
 
-    // 5. Log
-    await supabase.from("questions").insert({
-      user_id: userId,
-      question: `[DETECTIVE] ${safeBallFlight} / ${safeDivot} / ${safeContact} / ${safeClub}`,
-      response: diagnosisText,
-      club: safeClub !== "Not specified" ? safeClub : null,
-    });
+    await query(
+      "INSERT INTO questions (user_id, question, response, club) VALUES ($1, $2, $3, $4)",
+      [userId, `[DETECTIVE] ${safeBallFlight} / ${safeDivot} / ${safeContact}`, diagnosisText, safeClub]
+    );
 
     return res.status(200).json({ diagnosis: diagnosisText });
-
   } catch (error) {
-    console.error("Detective error:", error);
-    return res.status(500).json({ error: "Diagnosis failed. Please try again." });
+    return res.status(500).json({ error: "Diagnosis failed: " + error.message });
   }
 };
-
-function extractToken(req) {
-  const header = req.headers.authorization || "";
-  if (header.startsWith("Bearer ")) return header.slice(7).trim();
-  return null;
-}

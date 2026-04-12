@@ -1,8 +1,7 @@
-// api/user.js
-// Returns current user info + Pro status — called on app load
+// api/user.js — User status using Vercel Postgres
 
-const { createClient } = require("@supabase/supabase-js");
 const jwt = require("jsonwebtoken");
+const { query, setupDB } = require("./_db");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -12,57 +11,40 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: "Not authenticated" });
+    const token = (req.headers.authorization || "").replace("Bearer ", "").trim();
+    if (!token) return res.status(401).json({ error: "Not authenticated" });
 
-    const token = authHeader.split(" ")[1];
     let userId;
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       userId = decoded.userId;
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
-    }
+    } catch { return res.status(401).json({ error: "Invalid token" }); }
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
+    await setupDB();
+
+    const result = await query(
+      "SELECT id, name, email, is_pro, created_at FROM users WHERE id = $1",
+      [userId]
     );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, name, email, is_pro, created_at")
-      .eq("id", userId)
-      .single();
-
-    if (error || !user) return res.status(404).json({ error: "User not found" });
-
-    // Get today's question count for free users
     let questionsUsedToday = 0;
     if (!user.is_pro) {
       const today = new Date().toISOString().split("T")[0];
-      const { count } = await supabase
-        .from("questions")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .gte("created_at", `${today}T00:00:00.000Z`);
-      questionsUsedToday = count || 0;
+      const countResult = await query(
+        "SELECT COUNT(*) FROM questions WHERE user_id = $1 AND created_at >= $2",
+        [userId, `${today}T00:00:00.000Z`]
+      );
+      questionsUsedToday = parseInt(countResult.rows[0].count);
     }
 
     return res.status(200).json({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        isPro: user.is_pro,
-        memberSince: user.created_at,
-      },
+      user: { id: user.id, name: user.name, email: user.email, isPro: user.is_pro },
       questionsUsedToday,
-      questionsRemaining: user.is_pro ? "unlimited" : Math.max(0, 2 - questionsUsedToday),
+      questionsRemaining: user.is_pro ? "unlimited" : Math.max(0, 2 - questionsUsedToday)
     });
-
   } catch (error) {
-    console.error("User fetch error:", error);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: "Server error: " + error.message });
   }
 };

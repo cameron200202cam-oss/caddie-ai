@@ -1,6 +1,8 @@
-const { createClient } = require("@supabase/supabase-js");
+// api/auth.js — Auth using Vercel Postgres
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { query, setupDB } = require("./_db");
 
 const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -30,9 +32,16 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("X-Content-Type-Options", "nosniff");
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  try {
+    await setupDB();
+  } catch (e) {
+    return res.status(500).json({ error: "Database setup failed: " + e.message });
+  }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "unknown";
   const { action, name, email, password } = req.body || {};
@@ -41,11 +50,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Invalid action" });
   }
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
-
+  // ── SIGNUP ──
   if (action === "signup") {
     const cleanName = sanitizeName(name);
     const cleanEmail = sanitizeEmail(email);
@@ -55,26 +60,18 @@ module.exports = async function handler(req, res) {
     if (!validatePassword(password)) return res.status(400).json({ error: "Password must be 6-128 characters." });
 
     try {
-      const { data: existing } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", cleanEmail)
-        .single();
-
-      if (existing) return res.status(409).json({ error: "An account with that email already exists." });
-
-      const passwordHash = await bcrypt.hash(password, 12);
-
-      const { data: newUser, error: createError } = await supabase
-        .from("users")
-        .insert({ name: cleanName, email: cleanEmail, password_hash: passwordHash, is_pro: false })
-        .select("id, name, email, is_pro")
-        .single();
-
-      if (createError) {
-        return res.status(500).json({ error: createError.message, details: createError.details, hint: createError.hint });
+      const existing = await query("SELECT id FROM users WHERE email = $1", [cleanEmail]);
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: "An account with that email already exists." });
       }
 
+      const passwordHash = await bcrypt.hash(password, 12);
+      const result = await query(
+        "INSERT INTO users (name, email, password_hash, is_pro) VALUES ($1, $2, $3, false) RETURNING id, name, email, is_pro",
+        [cleanName, cleanEmail, passwordHash]
+      );
+
+      const newUser = result.rows[0];
       const token = jwt.sign(
         { userId: newUser.id, email: newUser.email },
         process.env.JWT_SECRET,
@@ -87,10 +84,11 @@ module.exports = async function handler(req, res) {
       });
 
     } catch (err) {
-      return res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 200) });
+      return res.status(500).json({ error: "Signup failed: " + err.message });
     }
   }
 
+  // ── LOGIN ──
   if (action === "login") {
     const rateCheck = checkRateLimit(ip);
     if (!rateCheck.allowed) return res.status(429).json({ error: `Too many failed attempts. Wait ${rateCheck.retryAfter} minutes.` });
@@ -100,16 +98,12 @@ module.exports = async function handler(req, res) {
     if (!password) return res.status(400).json({ error: "Password is required." });
 
     try {
-      const { data: user, error: fetchError } = await supabase
-        .from("users")
-        .select("id, name, email, password_hash, is_pro")
-        .eq("email", cleanEmail)
-        .single();
+      const result = await query(
+        "SELECT id, name, email, password_hash, is_pro FROM users WHERE email = $1",
+        [cleanEmail]
+      );
 
-      if (fetchError) {
-        return res.status(500).json({ error: fetchError.message, details: fetchError.details });
-      }
-
+      const user = result.rows[0];
       const dummyHash = "$2a$12$dummyhashtopreventtimingattackspadding12345678";
       const passwordMatch = await bcrypt.compare(password, user?.password_hash || dummyHash);
 
@@ -129,7 +123,7 @@ module.exports = async function handler(req, res) {
       });
 
     } catch (err) {
-      return res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 200) });
+      return res.status(500).json({ error: "Login failed: " + err.message });
     }
   }
 };
