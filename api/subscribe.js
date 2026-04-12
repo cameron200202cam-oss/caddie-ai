@@ -16,11 +16,10 @@ module.exports = async function handler(req, res) {
     const token = (req.headers.authorization || "").replace("Bearer ", "").trim();
     if (!token) return res.status(401).json({ error: "Not authenticated" });
 
-    let userId, userEmail;
+    let userId;
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       userId = decoded.userId;
-      userEmail = decoded.email;
     } catch { return res.status(401).json({ error: "Invalid token" }); }
 
     await setupDB();
@@ -36,35 +35,37 @@ module.exports = async function handler(req, res) {
     const { paymentMethodId } = req.body;
     if (!paymentMethodId) return res.status(400).json({ error: "Payment method required" });
 
+    // Create or retrieve Stripe customer
     let customerId = user.stripe_customer_id;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
         name: user.name,
-        payment_method: paymentMethodId,
-        invoice_settings: { default_payment_method: paymentMethodId }
       });
       customerId = customer.id;
       await query("UPDATE users SET stripe_customer_id = $1 WHERE id = $2", [customerId, userId]);
-    } else {
-      await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
-      await stripe.customers.update(customerId, {
-        invoice_settings: { default_payment_method: paymentMethodId }
-      });
     }
 
+    // Attach payment method to customer
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+    await stripe.customers.update(customerId, {
+      invoice_settings: { default_payment_method: paymentMethodId }
+    });
+
+    // Create subscription with immediate payment
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: process.env.STRIPE_PRICE_ID }],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
+      default_payment_method: paymentMethodId,
       expand: ["latest_invoice.payment_intent"]
     });
 
-    const paymentIntent = subscription.latest_invoice.payment_intent;
+    const invoice = subscription.latest_invoice;
+    const paymentIntent = invoice?.payment_intent;
 
-    if (paymentIntent.status === "requires_action") {
+    // Handle 3D Secure
+    if (paymentIntent?.status === "requires_action") {
       return res.status(200).json({
         requiresAction: true,
         clientSecret: paymentIntent.client_secret,
@@ -72,7 +73,12 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    if (paymentIntent.status === "succeeded" || subscription.status === "active") {
+    // Success
+    if (
+      subscription.status === "active" ||
+      subscription.status === "trialing" ||
+      paymentIntent?.status === "succeeded"
+    ) {
       await query(
         "UPDATE users SET is_pro = true, stripe_subscription_id = $1 WHERE id = $2",
         [subscription.id, userId]
@@ -80,9 +86,15 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
 
-    return res.status(400).json({ error: "Payment failed. Please try again." });
+    // Payment failed — return specific Stripe error if available
+    const declineCode = paymentIntent?.last_payment_error?.decline_code;
+    const errorMsg = paymentIntent?.last_payment_error?.message || "Payment failed. Please check your card details.";
+    return res.status(400).json({ error: errorMsg, declineCode });
+
   } catch (error) {
+    console.error("Subscribe error:", error);
     if (error.type === "StripeCardError") return res.status(400).json({ error: error.message });
+    if (error.type === "StripeInvalidRequestError") return res.status(400).json({ error: "Invalid payment details: " + error.message });
     return res.status(500).json({ error: "Something went wrong: " + error.message });
   }
 };

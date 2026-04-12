@@ -1,8 +1,9 @@
-// api/analyze.js — Swing photo analysis using Vercel Postgres
+// api/analyze.js — Swing photo analysis with shared rate limiting
 
 const Anthropic = require("@anthropic-ai/sdk");
 const jwt = require("jsonwebtoken");
 const { query, setupDB } = require("./_db");
+const { checkAndConsumeLimit } = require("./_rateLimit");
 
 const SYSTEM_PROMPT = `You are Caddie AI's elite swing analyst. Analyze golf swing photos and respond ONLY with valid JSON:
 {
@@ -47,19 +48,22 @@ module.exports = async function handler(req, res) {
     const user = userResult.rows[0];
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    if (!user.is_pro) {
-      const today = new Date().toISOString().split("T")[0];
-      const countResult = await query(
-        "SELECT COUNT(*) FROM questions WHERE user_id = $1 AND created_at >= $2",
-        [userId, `${today}T00:00:00.000Z`]
-      );
-      if (parseInt(countResult.rows[0].count) >= 2) {
-        return res.status(402).json({ error: "free_limit_reached" });
-      }
+    // Check shared rate limit
+    const limitCheck = await checkAndConsumeLimit(userId, user.is_pro);
+    if (!limitCheck.allowed) {
+      return res.status(402).json({
+        error: "free_limit_reached",
+        message: "You've used your 2 free questions today. Upgrade to Pro for unlimited access."
+      });
     }
 
     const { images, context } = req.body;
     if (!images || images.length === 0) return res.status(400).json({ error: "No images provided" });
+
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    for (const img of images) {
+      if (!ALLOWED_TYPES.includes(img.mediaType)) return res.status(400).json({ error: "Invalid image type" });
+    }
 
     const imageContents = images.map(img => ({
       type: "image",
@@ -81,7 +85,8 @@ module.exports = async function handler(req, res) {
       [userId, `[SWING ANALYSIS] ${context?.slice(0, 100) || "Photo"}`, analysisText]
     );
 
-    return res.status(200).json({ analysis: analysisText });
+    return res.status(200).json({ analysis: analysisText, remaining: limitCheck.remaining });
+
   } catch (error) {
     return res.status(500).json({ error: "Analysis failed: " + error.message });
   }

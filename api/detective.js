@@ -1,8 +1,9 @@
-// api/detective.js — Swing Detective using Vercel Postgres
+// api/detective.js — Swing Detective with shared rate limiting
 
 const Anthropic = require("@anthropic-ai/sdk");
 const jwt = require("jsonwebtoken");
 const { query, setupDB } = require("./_db");
+const { checkAndConsumeLimit } = require("./_rateLimit");
 
 const SYSTEM_PROMPT = `You are a forensic golf swing analyst. Diagnose golf shot problems from symptoms. Respond ONLY with valid JSON:
 {
@@ -43,15 +44,13 @@ module.exports = async function handler(req, res) {
     const user = userResult.rows[0];
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    if (!user.is_pro) {
-      const today = new Date().toISOString().split("T")[0];
-      const countResult = await query(
-        "SELECT COUNT(*) FROM questions WHERE user_id = $1 AND created_at >= $2",
-        [userId, `${today}T00:00:00.000Z`]
-      );
-      if (parseInt(countResult.rows[0].count) >= 2) {
-        return res.status(402).json({ error: "free_limit_reached", message: "Upgrade to Pro for unlimited access." });
-      }
+    // Check shared rate limit
+    const limitCheck = await checkAndConsumeLimit(userId, user.is_pro);
+    if (!limitCheck.allowed) {
+      return res.status(402).json({
+        error: "free_limit_reached",
+        message: "You've used your 2 free questions today. Upgrade to Pro for unlimited access."
+      });
     }
 
     const { symptoms } = req.body || {};
@@ -78,7 +77,8 @@ module.exports = async function handler(req, res) {
       [userId, `[DETECTIVE] ${safeBallFlight} / ${safeDivot} / ${safeContact}`, diagnosisText, safeClub]
     );
 
-    return res.status(200).json({ diagnosis: diagnosisText });
+    return res.status(200).json({ diagnosis: diagnosisText, remaining: limitCheck.remaining });
+
   } catch (error) {
     return res.status(500).json({ error: "Diagnosis failed: " + error.message });
   }

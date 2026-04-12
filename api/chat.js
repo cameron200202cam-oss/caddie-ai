@@ -1,12 +1,11 @@
-// api/chat.js — Chat using Vercel Postgres
+// api/chat.js — Chat with shared rate limiting
 
 const Anthropic = require("@anthropic-ai/sdk");
 const jwt = require("jsonwebtoken");
 const { query, setupDB } = require("./_db");
+const { checkAndConsumeLimit } = require("./_rateLimit");
 
-const FREE_DAILY_LIMIT = 2;
-
-const SYSTEM_PROMPT = `You are Caddie AI — a world-class golf instructor and swing coach with 25+ years of experience teaching players of all levels, from weekend hackers to club champions.
+const SYSTEM_PROMPT = `You are Caddie AI — a world-class golf instructor and swing coach with 25+ years of experience.
 
 When a golfer describes a miss or problem, structure your response EXACTLY like this:
 
@@ -48,15 +47,13 @@ module.exports = async function handler(req, res) {
     const user = userResult.rows[0];
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    if (!user.is_pro) {
-      const today = new Date().toISOString().split("T")[0];
-      const countResult = await query(
-        "SELECT COUNT(*) FROM questions WHERE user_id = $1 AND created_at >= $2",
-        [userId, `${today}T00:00:00.000Z`]
-      );
-      if (parseInt(countResult.rows[0].count) >= FREE_DAILY_LIMIT) {
-        return res.status(402).json({ error: "free_limit_reached", message: "Upgrade to Pro for unlimited access." });
-      }
+    // Check shared rate limit
+    const limitCheck = await checkAndConsumeLimit(userId, user.is_pro);
+    if (!limitCheck.allowed) {
+      return res.status(402).json({
+        error: "free_limit_reached",
+        message: "You've used your 2 free questions today. Upgrade to Pro for unlimited access."
+      });
     }
 
     const { messages, club } = req.body;
@@ -82,10 +79,11 @@ module.exports = async function handler(req, res) {
 
     await query(
       "INSERT INTO questions (user_id, question, response, club) VALUES ($1, $2, $3, $4)",
-      [userId, messages[messages.length - 1].content, reply, club || null]
+      [userId, messages[messages.length - 1].content.slice(0, 500), reply, club || null]
     );
 
-    return res.status(200).json({ reply });
+    return res.status(200).json({ reply, remaining: limitCheck.remaining });
+
   } catch (error) {
     console.error("Chat error:", error);
     return res.status(500).json({ error: "Something went wrong: " + error.message });
