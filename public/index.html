@@ -545,19 +545,7 @@ async function loadApp() {
     }
   } catch(e) { console.log('Could not fetch user status'); }
 
-  // Init Stripe card element
-  if (stripe) {
-    const elements = stripe.elements();
-    cardElement = elements.create('card', {
-      style: {
-        base: {
-          color: '#f0ead8', fontFamily: 'DM Sans, sans-serif', fontSize: '15px',
-          '::placeholder': { color: 'rgba(240,234,216,0.4)' }
-        }
-      }
-    });
-    cardElement.mount('#card-element');
-  }
+  // Stripe card element mounts when paywall opens (not here — modal is hidden)
 }
 
 function handleLogout() {
@@ -605,6 +593,21 @@ function updateFreeBanner() {
 // ════════════════════════════════
 function openPaywall() {
   document.getElementById('paywallModal').classList.add('open');
+  // Mount card element now that modal is visible
+  if (stripe && !cardElement) {
+    const elements = stripe.elements();
+    cardElement = elements.create('card', {
+      style: {
+        base: {
+          color: '#f0ead8',
+          fontFamily: 'DM Sans, sans-serif',
+          fontSize: '16px',
+          '::placeholder': { color: 'rgba(240,234,216,0.4)' }
+        }
+      }
+    });
+    cardElement.mount('#card-element');
+  }
 }
 function closePaywall() {
   document.getElementById('paywallModal').classList.remove('open');
