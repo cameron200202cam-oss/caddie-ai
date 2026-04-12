@@ -6,6 +6,6 @@ module.exports = async function handler(req, res) {
     hasUrl: !!url,
     urlValue: url ? url.slice(0, 30) + '...' : 'MISSING',
     hasKey: !!key,
-    keyStart: key ? key.slice(0, 10) + '...' : 'MISSIN G'
+    keyStart: key ? key.slice(0, 10) + '...' : 'MISSING' 
   });
 };
