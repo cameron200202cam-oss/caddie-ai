@@ -13,29 +13,11 @@
     { "src": "/api/subscribe", "dest": "/api/subscribe.js" },
     { "src": "/api/webhook", "dest": "/api/webhook.js" },
     { "src": "/api/user", "dest": "/api/user.js" },
+    { "src": "/api/test", "dest": "/api/test.js" },
     { "src": "/", "dest": "/public/index.html" },
     { "src": "/analyzer", "dest": "/public/analyzer.html" },
     { "src": "/swing-detective", "dest": "/public/swing-detective.html" },
     { "src": "/lie-whisperer", "dest": "/public/lie-whisperer.html" },
     { "src": "/(.*)", "dest": "/public/$1" }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
-    }
   ]
 }
