@@ -147,6 +147,24 @@
     .main{padding:1.5rem 1rem;}
     .result-header{flex-direction:column;}
   }
+
+  /* Paywall Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2.5rem;max-width:400px;width:100%;text-align:center;animation:modalIn 0.3s ease both;}
+  @keyframes modalIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+  .modal-icon{font-size:2.5rem;margin-bottom:0.8rem;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;margin-bottom:0.5rem;}
+  .modal-title span{color:var(--gold);}
+  .modal-sub{font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;}
+  .modal-price{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold);line-height:1;margin-bottom:1rem;}
+  .modal-price sub{font-size:1rem;color:var(--muted);}
+  .modal-feats{display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;text-align:left;}
+  .modal-feats li{font-size:0.83rem;color:var(--cream);list-style:none;display:flex;align-items:center;gap:0.5rem;}
+  .modal-feats li::before{content:'⛳';font-size:0.75rem;}
+  .btn-go-pro{width:100%;background:var(--gold);color:var(--bg);border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;transition:all 0.2s;}
+  .btn-go-pro:hover{background:#e0bc60;}
+  .btn-dismiss{background:none;border:none;color:var(--muted);font-size:0.78rem;cursor:pointer;margin-top:0.8rem;text-decoration:underline;font-family:'DM Sans',sans-serif;}
 </style>
 </head>
 <body>
@@ -431,21 +449,38 @@ async function runDiagnosis() {
       body: JSON.stringify({ symptoms })
     });
 
-    let data;
+    const json = await res.json();
+
+    if (res.status === 402 || json.error === 'free_limit_reached') {
+      document.getElementById('loadingCard').classList.remove('visible');
+      document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('step0').classList.add('active');
+      updateStepper(0);
+      document.getElementById('paywallModal').classList.add('open');
+      return;
+    }
+
     if (!res.ok) {
-      data = await getDemoResponse(symptoms);
-    } else {
-      const json = await res.json();
-      data = json.diagnosis;
-      if (typeof data === 'string') {
-        try { data = JSON.parse(data.replace(/```json|```/g, '').trim()); } catch(e) {}
-      }
+      document.getElementById('loadingCard').classList.remove('visible');
+      document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('step0').classList.add('active');
+      updateStepper(0);
+      alert(json.error || 'Something went wrong. Please try again.');
+      return;
+    }
+
+    let data = json.diagnosis;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data.replace(/```json|```/g, '').trim()); } catch(e) {}
     }
 
     renderResult(data, symptoms);
   } catch(e) {
-    const data = await getDemoResponse(symptoms);
-    renderResult(data, symptoms);
+    document.getElementById('loadingCard').classList.remove('visible');
+    document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('step0').classList.add('active');
+    updateStepper(0);
+    alert('Connection error. Please try again.');
   }
 
   btn.disabled = false;
@@ -587,5 +622,25 @@ window.addEventListener('load', () => {
   else { badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free'; }
 });
 </script>
+
+<!-- Paywall Modal -->
+<div class="modal-overlay" id="paywallModal">
+  <div class="modal-box">
+    <div class="modal-icon">⛳</div>
+    <div class="modal-title">Go <span>Pro</span></div>
+    <div class="modal-sub">You've used your 2 free questions today. All 4 features share the limit.</div>
+    <div class="modal-price"><sup>$</sup>9<sub>/mo</sub></div>
+    <ul class="modal-feats">
+      <li>Unlimited Ask Caddie questions</li>
+      <li>Unlimited Swing Detective diagnoses</li>
+      <li>Unlimited Lie Whisperer reads</li>
+      <li>Unlimited Swing Analyzer photos</li>
+      <li>Cancel anytime</li>
+    </ul>
+    <button class="btn-go-pro" onclick="location.href='index.html#upgrade'">Upgrade to Pro — $9/mo</button>
+    <button class="btn-dismiss" onclick="document.getElementById('paywallModal').classList.remove('open')">Maybe later</button>
+  </div>
+</div>
+
 </body>
 </html>
