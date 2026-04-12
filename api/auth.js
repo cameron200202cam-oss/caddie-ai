@@ -4,6 +4,7 @@ const { createClient } = require("@supabase/supabase-js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+
 const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
