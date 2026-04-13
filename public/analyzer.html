@@ -949,12 +949,28 @@
 // CONFIG — Replace with your Vercel URL
 // ════════════════════════════════
 const API_BASE = 'https://mycaddieai.golf';
-const AUTH_TOKEN = localStorage.getItem('caddie_token') || '';
+const AUTH_TOKEN = localStorage.getItem('caddie_token') || ''; if (!AUTH_TOKEN) { location.href = 'index.html'; }
 
 // ════════════════════════════════
 // STATE
 // ════════════════════════════════
 const photos = [null, null, null]; // base64 strings
+
+// Compress image before sending to keep payload small
+async function compressImage(base64, maxWidth=1200, quality=0.8) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = base64;
+  });
+}
 const photoFiles = [null, null, null];
 
 // ════════════════════════════════
@@ -1059,9 +1075,12 @@ async function analyzeSwing() {
         'Authorization': `Bearer ${AUTH_TOKEN}`
       },
       body: JSON.stringify({
-        images: uploadedPhotos.map(p => ({
-          data: p.split(',')[1],
-          mediaType: p.split(';')[0].split(':')[1]
+        images: await Promise.all(uploadedPhotos.map(async p => {
+          const compressed = await compressImage(p);
+          return {
+            data: compressed.split(',')[1],
+            mediaType: 'image/jpeg'
+          };
         })),
         context
       })
@@ -1089,16 +1108,9 @@ async function analyzeSwing() {
 
   } catch(err) {
     console.error('Analysis error:', err);
-    // Fallback to direct call
-    try {
-      const context = buildContext();
-      const analysisText = await callAnthropicDirect(uploadedPhotos, context);
-      renderAnalysis(analysisText, uploadedPhotos, uploadedPhotos.length);
-    } catch(e) {
-      document.getElementById('skeletonCard').classList.remove('visible');
-      document.getElementById('emptyState').style.display = 'flex';
-      alert('Analysis failed. Make sure your API is configured.');
-    }
+    document.getElementById('skeletonCard').classList.remove('visible');
+    document.getElementById('emptyState').style.display = 'flex';
+    alert('Something went wrong. Please try again.');
   }
 
   btn.disabled = false;

@@ -1,5 +1,10 @@
 // api/analyze.js — Swing photo analysis with shared rate limiting
 
+// Increase body size limit for image uploads
+export const config = {
+  api: { bodyParser: { sizeLimit: '20mb' } }
+};
+
 const Anthropic = require("@anthropic-ai/sdk");
 const jwt = require("jsonwebtoken");
 const { query, setupDB } = require("./_db");
