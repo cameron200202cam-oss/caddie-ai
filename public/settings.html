@@ -238,7 +238,7 @@
 
 <script>
 const API_BASE = 'https://mycaddieai.golf';
-const STRIPE_PK = pk_live_51TLAzuLnJDmWQ4Zy8tCqe8DIozY86WDJe7i8Nbr8HlCEYxdhtqZw9nLeM2d6BjGVZV7ZfSDTZchVJxb8otDj3q1M00jP4GU59h';
+const STRIPE_PK = 'pk_live_51TLAzuLnJDmWQ4Zy8tCqe8DIozY86WDJe7i8Nbr8HlCEYxdhtqZw9nLeM2d6BjGVZV7ZfSDTZchVJxb8otDj3q1M00jP4GU59h';
 
 let currentUser = null;
 let authToken = null;
@@ -256,13 +256,30 @@ window.addEventListener('load', async () => {
 
   currentUser = JSON.parse(savedUser);
 
-  // Update nav
-  document.getElementById('navName').textContent = currentUser.name?.split(' ')[0] || 'Account';
+  // Immediately populate from cached data so page never looks blank
   const badge = document.getElementById('tierBadge');
-  if (currentUser.isPro) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
-  else { badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free'; }
+  document.getElementById('navName').textContent = currentUser.name?.split(' ')[0] || 'Account';
+  document.getElementById('accountName').textContent = currentUser.name || '—';
+  document.getElementById('accountEmail').textContent = currentUser.email || '—';
 
-  // Fetch latest user status
+  // Show correct plan immediately from cache
+  function applyProUI(isPro) {
+    if (isPro) {
+      badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro';
+      document.getElementById('freePlanCard').style.display = 'none';
+      document.getElementById('proPlanCard').style.display = 'block';
+      document.getElementById('dangerZone').style.display = 'block';
+    } else {
+      badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free';
+      document.getElementById('freePlanCard').style.display = 'block';
+      document.getElementById('proPlanCard').style.display = 'none';
+      document.getElementById('dangerZone').style.display = 'none';
+    }
+  }
+
+  applyProUI(currentUser.isPro);
+
+  // Fetch fresh data from server
   try {
     const res = await fetch(`${API_BASE}/api/user`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
@@ -272,29 +289,24 @@ window.addEventListener('load', async () => {
       currentUser.isPro = data.user.isPro;
       localStorage.setItem('caddie_user', JSON.stringify(currentUser));
 
-      // Update account info
-      document.getElementById('accountName').textContent = data.user.name;
-      document.getElementById('accountEmail').textContent = data.user.email;
-      document.getElementById('accountSince').textContent = new Date(data.user.memberSince || Date.now()).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+      // Update account info with fresh data
+      document.getElementById('accountName').textContent = data.user.name || currentUser.name || '—';
+      document.getElementById('accountEmail').textContent = data.user.email || currentUser.email || '—';
+      if (data.user.memberSince) {
+        document.getElementById('accountSince').textContent = new Date(data.user.memberSince).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+      }
 
-      // Update plan UI
+      // Update usage bar for free users
       const used = data.questionsUsedToday || 0;
       const pct = Math.min(100, (used / 2) * 100);
       document.getElementById('usageText').textContent = `${used} of 2 used today`;
       document.getElementById('usageBar').style.width = pct + '%';
       if (pct >= 100) document.getElementById('usageBar').classList.add('full');
 
-      if (data.user.isPro) {
-        document.getElementById('freePlanCard').style.display = 'none';
-        document.getElementById('proPlanCard').style.display = 'block';
-        document.getElementById('dangerZone').style.display = 'block';
-        badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro';
-      }
+      applyProUI(data.user.isPro);
     }
   } catch(e) {
-    // Use cached data
-    document.getElementById('accountName').textContent = currentUser.name || '—';
-    document.getElementById('accountEmail').textContent = currentUser.email || '—';
+    console.log('Could not fetch fresh user data, using cache');
   }
 
   // Init Stripe

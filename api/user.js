@@ -42,7 +42,13 @@ module.exports = async function handler(req, res) {
     }
 
     return res.status(200).json({
-      user: { id: user.id, name: user.name, email: user.email, isPro: user.is_pro },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isPro: user.is_pro,
+        memberSince: user.created_at  // ← was missing
+      },
       questionsUsedToday,
       questionsRemaining: user.is_pro ? "unlimited" : Math.max(0, 2 - questionsUsedToday)
     });
