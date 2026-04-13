@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caddie AI — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+  :root {
+    --bg:#0b1a12; --surface:#122218; --surface2:#1a2e20;
+    --border:rgba(255,255,255,0.07); --gold:#d4a94a;
+    --gold-dim:rgba(212,169,74,0.10); --green:#2a6b3f;
+    --cream:#f0ead8; --muted:rgba(240,234,216,0.45);
+    --red:rgba(192,57,43,0.15);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--cream);font-family:'DM Sans',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(42,107,63,0.15) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 2rem;border-bottom:1px solid var(--border);position:relative;z-index:10;flex-wrap:wrap;gap:0.8rem;}
+  .logo{display:flex;align-items:center;gap:0.6rem;font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:var(--cream);text-decoration:none;}
+  .logo span{color:var(--gold);}
+  .logo-ball{width:32px;height:32px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.95rem;}
+  .nav-tabs{display:flex;gap:0.2rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.25rem;flex-wrap:wrap;}
+  .nav-tab{font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;padding:0.4rem 0.9rem;border-radius:5px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.2s;}
+  .nav-tab.active{background:var(--gold);color:var(--bg);}
+  .nav-tab:hover:not(.active){color:var(--cream);}
+  .nav-right{display:flex;align-items:center;gap:0.8rem;font-size:0.8rem;color:var(--muted);}
+  .tier-badge{font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;padding:0.22rem 0.65rem;border-radius:20px;font-weight:600;}
+  .tier-pro{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,169,74,0.3);}
+  .tier-free{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+
+  .main{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:2.5rem 2rem;}
+
+  .page-title{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:2px;margin-bottom:0.3rem;}
+  .page-sub{font-size:0.88rem;color:var(--muted);margin-bottom:2.5rem;}
+
+  .settings-section{margin-bottom:2rem;}
+  .section-title{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1rem;}
+
+  .plan-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;}
+  .plan-info{}
+  .plan-name{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;margin-bottom:0.2rem;}
+  .plan-desc{font-size:0.82rem;color:var(--muted);line-height:1.5;}
+  .plan-price{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);letter-spacing:1px;}
+  .plan-price sub{font-size:0.9rem;color:var(--muted);}
+
+  .btn{font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:500;padding:0.65rem 1.4rem;border-radius:7px;cursor:pointer;border:none;transition:all 0.2s;white-space:nowrap;}
+  .btn-gold{background:var(--gold);color:var(--bg);font-weight:600;}
+  .btn-gold:hover{background:#e0bc60;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--cream);}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold);}
+  .btn-danger{background:var(--red);border:1px solid rgba(192,57,43,0.3);color:#e74c3c;}
+  .btn-danger:hover{background:rgba(192,57,43,0.25);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .feature-list{display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem;}
+  .feature-item{display:flex;align-items:center;gap:0.6rem;font-size:0.83rem;color:var(--muted);}
+  .feature-item.active{color:var(--cream);}
+  .feature-item::before{content:'✗';color:rgba(192,57,43,0.7);font-size:0.8rem;flex-shrink:0;}
+  .feature-item.active::before{content:'✓';color:var(--gold);}
+
+  .usage-bar-wrap{background:rgba(255,255,255,0.05);border-radius:20px;height:6px;margin-top:0.8rem;overflow:hidden;}
+  .usage-bar{height:100%;background:var(--gold);border-radius:20px;transition:width 0.8s ease;}
+  .usage-bar.full{background:#e74c3c;}
+  .usage-label{display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:0.4rem;}
+
+  .info-row{display:flex;justify-content:space-between;align-items:center;padding:0.7rem 0;border-bottom:1px solid var(--border);font-size:0.85rem;}
+  .info-row:last-child{border-bottom:none;}
+  .info-label{color:var(--muted);}
+  .info-value{color:var(--cream);font-weight:500;}
+
+  .danger-zone{background:var(--red);border:1px solid rgba(192,57,43,0.25);border-radius:12px;padding:1.5rem;}
+  .danger-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:#e74c3c;margin-bottom:0.4rem;}
+  .danger-desc{font-size:0.82rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;}
+
+  .success-banner{background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);border-radius:8px;padding:0.8rem 1rem;font-size:0.83rem;color:#2ecc71;margin-bottom:1rem;display:none;}
+  .error-banner{background:var(--red);border:1px solid rgba(192,57,43,0.3);border-radius:8px;padding:0.8rem 1rem;font-size:0.83rem;color:#e74c3c;margin-bottom:1rem;display:none;}
+
+  /* Upgrade modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2rem;max-width:420px;width:100%;text-align:center;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:0.4rem;}
+  .modal-title span{color:var(--gold);}
+  .modal-sub{font-size:0.83rem;color:var(--muted);margin-bottom:1.2rem;line-height:1.5;}
+  .modal-price{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold);line-height:1;margin-bottom:1.2rem;}
+  .modal-price sub{font-size:1rem;color:var(--muted);}
+  #card-element{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.9rem 1rem;margin:1rem 0;text-align:left;}
+  #card-element.StripeElement--focus{border-color:var(--gold);}
+  #pay-error{color:#e74c3c;font-size:0.8rem;margin-bottom:0.6rem;display:none;text-align:left;}
+  .modal-close-btn{background:none;border:none;color:var(--muted);font-size:0.78rem;cursor:pointer;margin-top:0.8rem;text-decoration:underline;font-family:'DM Sans',sans-serif;}
+
+  /* Confirm modal */
+  .confirm-modal{background:var(--surface);border:1px solid rgba(192,57,43,0.3);border-radius:16px;padding:2rem;max-width:380px;width:100%;text-align:center;}
+  .confirm-title{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;color:#e74c3c;margin-bottom:0.5rem;}
+  .confirm-sub{font-size:0.83rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.5;}
+  .confirm-btns{display:flex;gap:0.8rem;justify-content:center;}
+
+  @media(max-width:600px){
+    nav{padding:0.9rem 1rem;}
+    .main{padding:1.5rem 1rem;}
+    .nav-tabs{display:none;}
+    .plan-row{flex-direction:column;align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="logo-ball">⛳</div>Caddie <span>AI</span></a>
+  <div class="nav-tabs">
+    <button class="nav-tab" onclick="location.href='index.html'">💬 Ask Caddie</button>
+    <button class="nav-tab" onclick="location.href='analyzer.html'">📷 Analyzer</button>
+    <button class="nav-tab" onclick="location.href='swing-detective.html'">🔍 Detective</button>
+    <button class="nav-tab" onclick="location.href='lie-whisperer.html'">🌿 Lie</button>
+    <button class="nav-tab active">⚙️ Settings</button>
+  </div>
+  <div class="nav-right">
+    <span class="tier-badge" id="tierBadge">FREE</span>
+    <span id="navName">Account</span>
+    <button onclick="handleLogout()" style="background:transparent;border:1px solid rgba(255,255,255,0.07);color:rgba(240,234,216,0.6);font-family:'DM Sans',sans-serif;font-size:0.78rem;padding:0.35rem 0.8rem;border-radius:6px;cursor:pointer;">Sign Out</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">Settings</div>
+  <div class="page-sub">Manage your account and subscription.</div>
+
+  <div class="success-banner" id="successBanner"></div>
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- ACCOUNT INFO -->
+  <div class="settings-section">
+    <div class="section-title">Account</div>
+    <div class="card">
+      <div class="info-row"><span class="info-label">Name</span><span class="info-value" id="accountName">—</span></div>
+      <div class="info-row"><span class="info-label">Email</span><span class="info-value" id="accountEmail">—</span></div>
+      <div class="info-row"><span class="info-label">Member Since</span><span class="info-value" id="accountSince">—</span></div>
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div class="settings-section">
+    <div class="section-title">Your Plan</div>
+
+    <!-- FREE PLAN -->
+    <div class="card" id="freePlanCard">
+      <div class="plan-row">
+        <div class="plan-info">
+          <div class="plan-name">Free Plan</div>
+          <div class="plan-desc">2 questions per day across all features.</div>
+        </div>
+        <div class="plan-price">$0<sub>/mo</sub></div>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item active">2 questions/day (shared across all features)</div>
+        <div class="feature-item">Unlimited questions</div>
+        <div class="feature-item">Priority AI responses</div>
+      </div>
+      <div style="margin-top:1rem;">
+        <div class="usage-label"><span id="usageText">0 of 2 used today</span><span id="usageReset">Resets at midnight</span></div>
+        <div class="usage-bar-wrap"><div class="usage-bar" id="usageBar" style="width:0%"></div></div>
+      </div>
+      <button class="btn btn-gold" style="margin-top:1.2rem;width:100%;" onclick="openUpgradeModal()">⚡ Upgrade to Pro — $9/mo</button>
+    </div>
+
+    <!-- PRO PLAN -->
+    <div class="card" id="proPlanCard" style="display:none;">
+      <div class="plan-row">
+        <div class="plan-info">
+          <div class="plan-name">⚡ Pro Plan</div>
+          <div class="plan-desc">Unlimited access to all features, every day.</div>
+        </div>
+        <div class="plan-price">$9<sub>/mo</sub></div>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item active">Unlimited Ask Caddie questions</div>
+        <div class="feature-item active">Unlimited Swing Analyzer</div>
+        <div class="feature-item active">Unlimited Swing Detective</div>
+        <div class="feature-item active">Unlimited Lie Whisperer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DANGER ZONE (Pro only) -->
+  <div class="settings-section" id="dangerZone" style="display:none;">
+    <div class="section-title">Subscription</div>
+    <div class="danger-zone">
+      <div class="danger-title">Cancel Subscription</div>
+      <div class="danger-desc">Your Pro access will be removed <strong>immediately</strong>. You will lose access to all Pro features right away and will not be refunded for the current period.</div>
+      <button class="btn btn-danger" onclick="openCancelConfirm()">Cancel Subscription</button>
+    </div>
+  </div>
+
+  <!-- LOGOUT -->
+  <div class="settings-section">
+    <div class="section-title">Account Actions</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <div style="font-size:0.88rem;font-weight:500;">Sign Out</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:0.2rem;">Sign out of your Caddie AI account.</div>
+        </div>
+        <button class="btn btn-ghost" onclick="handleLogout()">Sign Out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE MODAL -->
+<div class="modal-overlay" id="upgradeModal">
+  <div class="modal-box">
+    <div class="modal-title">Go <span>Pro</span></div>
+    <div class="modal-sub">Unlimited access to all 4 features. Cancel anytime.</div>
+    <div class="modal-price"><sup>$</sup>9<sub>/mo</sub></div>
+    <div id="pay-error"></div>
+    <div id="card-element"></div>
+    <button class="btn btn-gold" style="width:100%;font-size:1rem;padding:0.9rem;" id="payBtn" onclick="handlePayment()">Subscribe — $9/mo</button>
+    <button class="modal-close-btn" onclick="closeUpgradeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- CANCEL CONFIRM MODAL -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="confirm-modal">
+    <div class="confirm-title">Cancel Subscription?</div>
+    <div class="confirm-sub">You'll keep Pro access until the end of your billing period, then revert to the free plan.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-ghost" onclick="closeCancelConfirm()">Keep Pro</button>
+      <button class="btn btn-danger" id="confirmCancelBtn" onclick="handleCancelSubscription()">Yes, Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'https://mycaddieai.golf';
+const STRIPE_PK = 'pk_live_51TLAzuLnJDmWQ4Zy8tCqe8DIozY86WDJe7i8Nbr8HlCEYxdhtqZw9nLeM2d6BjGVZV7ZfSDTZchVJxb8otDj3q1M00jP4GU59h';
+
+let currentUser = null;
+let authToken = null;
+let stripe = null;
+let cardElement = null;
+
+window.addEventListener('load', async () => {
+  authToken = localStorage.getItem('caddie_token');
+  const savedUser = localStorage.getItem('caddie_user');
+
+  if (!authToken || !savedUser) {
+    location.href = 'index.html';
+    return;
+  }
+
+  currentUser = JSON.parse(savedUser);
+
+  // Immediately populate from cached data so page never looks blank
+  const badge = document.getElementById('tierBadge');
+  document.getElementById('navName').textContent = currentUser.name?.split(' ')[0] || 'Account';
+  document.getElementById('accountName').textContent = currentUser.name || '—';
+  document.getElementById('accountEmail').textContent = currentUser.email || '—';
+
+  // Show correct plan immediately from cache
+  function applyProUI(isPro) {
+    if (isPro) {
+      badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro';
+      document.getElementById('freePlanCard').style.display = 'none';
+      document.getElementById('proPlanCard').style.display = 'block';
+      document.getElementById('dangerZone').style.display = 'block';
+    } else {
+      badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free';
+      document.getElementById('freePlanCard').style.display = 'block';
+      document.getElementById('proPlanCard').style.display = 'none';
+      document.getElementById('dangerZone').style.display = 'none';
+    }
+  }
+
+  applyProUI(currentUser.isPro);
+
+  // Fetch fresh data from server
+  try {
+    const res = await fetch(`${API_BASE}/api/user`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      currentUser.isPro = data.user.isPro;
+      localStorage.setItem('caddie_user', JSON.stringify(currentUser));
+
+      // Update account info with fresh data
+      document.getElementById('accountName').textContent = data.user.name || currentUser.name || '—';
+      document.getElementById('accountEmail').textContent = data.user.email || currentUser.email || '—';
+      if (data.user.memberSince) {
+        document.getElementById('accountSince').textContent = new Date(data.user.memberSince).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+      }
+
+      // Update usage bar for free users
+      const used = data.questionsUsedToday || 0;
+      const pct = Math.min(100, (used / 2) * 100);
+      document.getElementById('usageText').textContent = `${used} of 2 used today`;
+      document.getElementById('usageBar').style.width = pct + '%';
+      if (pct >= 100) document.getElementById('usageBar').classList.add('full');
+
+      applyProUI(data.user.isPro);
+    }
+  } catch(e) {
+    console.log('Could not fetch fresh user data, using cache');
+  }
+
+  // Init Stripe
+  try {
+    stripe = Stripe(STRIPE_PK);
+  } catch(e) { console.log('Stripe init failed'); }
+});
+
+function openUpgradeModal() {
+  document.getElementById('upgradeModal').classList.add('open');
+  if (stripe && !cardElement) {
+    const elements = stripe.elements();
+    cardElement = elements.create('card', {
+      style: {
+        base: {
+          color: '#f0ead8',
+          fontFamily: 'DM Sans, sans-serif',
+          fontSize: '16px',
+          '::placeholder': { color: 'rgba(240,234,216,0.4)' }
+        }
+      }
+    });
+    cardElement.mount('#card-element');
+  }
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').classList.remove('open');
+}
+
+function openCancelConfirm() {
+  document.getElementById('cancelModal').classList.add('open');
+}
+
+function closeCancelConfirm() {
+  document.getElementById('cancelModal').classList.remove('open');
+}
+
+async function handlePayment() {
+  if (!stripe || !cardElement) { alert('Payment not configured.'); return; }
+
+  const btn = document.getElementById('payBtn');
+  const errEl = document.getElementById('pay-error');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  errEl.style.display = 'none';
+
+  try {
+    const { paymentMethod, error } = await stripe.createPaymentMethod({
+      type: 'card', card: cardElement,
+      billing_details: { email: currentUser.email, name: currentUser.name }
+    });
+
+    if (error) {
+      errEl.textContent = error.message; errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+      return;
+    }
+
+    const res = await fetch(`${API_BASE}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ paymentMethodId: paymentMethod.id })
+    });
+
+    const data = await res.json();
+
+    if (data.requiresAction) {
+      const { error: confirmError } = await stripe.confirmCardPayment(data.clientSecret);
+      if (confirmError) {
+        errEl.textContent = confirmError.message; errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+        return;
+      }
+    }
+
+    if (data.success || !data.error) {
+      currentUser.isPro = true;
+      localStorage.setItem('caddie_user', JSON.stringify(currentUser));
+      closeUpgradeModal();
+      showSuccess('🎉 Welcome to Pro! All features are now unlimited.');
+      document.getElementById('freePlanCard').style.display = 'none';
+      document.getElementById('proPlanCard').style.display = 'block';
+      document.getElementById('dangerZone').style.display = 'block';
+      document.getElementById('tierBadge').textContent = '⚡ PRO';
+      document.getElementById('tierBadge').className = 'tier-badge tier-pro';
+    } else {
+      errEl.textContent = data.error || 'Payment failed. Please try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+    }
+
+  } catch(e) {
+    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+  }
+}
+
+async function handleCancelSubscription() {
+  const btn = document.getElementById('confirmCancelBtn');
+  btn.disabled = true; btn.textContent = 'Cancelling...';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      currentUser.isPro = false;
+      localStorage.setItem('caddie_user', JSON.stringify(currentUser));
+      closeCancelConfirm();
+      showSuccess('Subscription cancelled. Your Pro access has been removed.');
+      document.getElementById('proPlanCard').style.display = 'none';
+      document.getElementById('dangerZone').style.display = 'none';
+      document.getElementById('freePlanCard').style.display = 'block';
+      document.getElementById('tierBadge').textContent = 'FREE';
+      document.getElementById('tierBadge').className = 'tier-badge tier-free';
+    } else {
+      closeCancelConfirm();
+      showError(data.error || 'Failed to cancel. Please try again.');
+    }
+  } catch(e) {
+    closeCancelConfirm();
+    showError('Something went wrong. Please try again.');
+  }
+
+  btn.disabled = false; btn.textContent = 'Yes, Cancel';
+}
+
+function handleLogout() {
+  localStorage.removeItem('caddie_token');
+  localStorage.removeItem('caddie_user');
+  location.href = 'index.html';
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('successBanner');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 6000);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 6000);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+</script>
+</body>
+</html>

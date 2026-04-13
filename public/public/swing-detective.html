@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caddie AI — Swing Detective</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Baskerville:ital,wght@0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0b1a12; --surface:#122218; --surface2:#1a2e20;
+    --border:rgba(255,255,255,0.07); --gold:#d4a94a;
+    --gold-dim:rgba(212,169,74,0.10); --green:#2a6b3f;
+    --cream:#f0ead8; --muted:rgba(240,234,216,0.45);
+    --red-dim:rgba(192,57,43,0.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--cream);font-family:'DM Sans',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(42,107,63,0.18) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 2rem;border-bottom:1px solid var(--border);position:relative;z-index:10;}
+  .logo{display:flex;align-items:center;gap:0.6rem;font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:var(--cream);text-decoration:none;}
+  .logo span{color:var(--gold);}
+  .logo-ball{width:32px;height:32px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.95rem;}
+  .nav-tabs{display:flex;gap:0.2rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.25rem;}
+  .nav-tab{font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;padding:0.4rem 0.9rem;border-radius:5px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.2s;}
+  .nav-tab.active{background:var(--gold);color:var(--bg);}
+  .nav-tab:hover:not(.active){color:var(--cream);}
+  .nav-right{display:flex;align-items:center;gap:0.8rem;font-size:0.8rem;color:var(--muted);}
+  .tier-badge{font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;padding:0.22rem 0.65rem;border-radius:20px;font-weight:600;}
+  .tier-pro{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,169,74,0.3);}
+  .tier-free{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+
+  .main{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:2.5rem 2rem;}
+
+  .page-header{margin-bottom:2.5rem;animation:fadeUp 0.5s ease both;}
+  .page-badge{display:inline-flex;align-items:center;gap:0.5rem;background:var(--gold-dim);border:1px solid rgba(212,169,74,0.25);color:var(--gold);font-size:0.68rem;letter-spacing:3px;text-transform:uppercase;padding:0.35rem 0.9rem;border-radius:20px;margin-bottom:1rem;}
+  .page-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,5vw,4rem);letter-spacing:2px;line-height:0.95;margin-bottom:0.6rem;}
+  .page-title span{color:var(--gold);}
+  .page-sub{font-family:'Libre Baskerville',serif;font-style:italic;font-size:0.95rem;color:var(--muted);max-width:520px;line-height:1.7;}
+
+  /* STEPPER */
+  .stepper{display:flex;align-items:center;gap:0;margin-bottom:2rem;}
+  .step-item{display:flex;align-items:center;gap:0.6rem;flex:1;}
+  .step-num{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:0.85rem;letter-spacing:1px;color:var(--muted);flex-shrink:0;transition:all 0.3s;}
+  .step-num.active{border-color:var(--gold);color:var(--gold);background:var(--gold-dim);}
+  .step-num.done{border-color:#2ecc71;color:#2ecc71;background:rgba(46,204,113,0.1);}
+  .step-label{font-size:0.72rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);transition:color 0.3s;}
+  .step-label.active{color:var(--cream);}
+  .step-connector{flex:1;height:1px;background:var(--border);margin:0 0.8rem;}
+
+  /* STEP PANELS */
+  .step-panel{display:none;animation:fadeUp 0.4s ease both;}
+  .step-panel.active{display:block;}
+
+  .step-title{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;margin-bottom:0.4rem;}
+  .step-sub{font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.5;}
+
+  /* OPTION GRID */
+  .option-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.8rem;margin-bottom:1.5rem;}
+  .option-grid.two-col{grid-template-columns:repeat(2,1fr);}
+
+  .option-card{background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:1.1rem;cursor:pointer;transition:all 0.2s;text-align:center;position:relative;}
+  .option-card:hover{border-color:rgba(212,169,74,0.4);background:var(--gold-dim);}
+  .option-card.selected{border-color:var(--gold);background:var(--gold-dim);}
+  .option-card.selected::after{content:'✓';position:absolute;top:8px;right:10px;color:var(--gold);font-weight:700;font-size:0.85rem;}
+
+  .option-icon{font-size:1.8rem;margin-bottom:0.5rem;}
+  .option-label{font-size:0.85rem;font-weight:500;color:var(--cream);margin-bottom:0.2rem;}
+  .option-desc{font-size:0.72rem;color:var(--muted);line-height:1.4;}
+
+  /* Club selector */
+  .club-row{display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:1.5rem;}
+  .club-chip{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:0.35rem 0.9rem;font-size:0.78rem;cursor:pointer;transition:all 0.2s;color:var(--muted);}
+  .club-chip:hover{border-color:rgba(212,169,74,0.4);color:var(--cream);}
+  .club-chip.selected{border-color:var(--gold);background:var(--gold-dim);color:var(--gold);}
+
+  /* NAV BUTTONS */
+  .step-nav{display:flex;gap:0.8rem;justify-content:flex-end;}
+  .btn{font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:500;padding:0.7rem 1.5rem;border-radius:7px;cursor:pointer;border:none;transition:all 0.2s;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--cream);}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold);}
+  .btn-gold{background:var(--gold);color:var(--bg);font-weight:600;}
+  .btn-gold:hover:not(:disabled){background:#e0bc60;transform:translateY(-1px);}
+  .btn-gold:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-lg{padding:0.85rem 2rem;font-size:0.95rem;}
+  .btn-full{width:100%;}
+
+  /* RESULT */
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeUp 0.5s ease both;display:none;}
+  .result-card.visible{display:block;}
+
+  .result-header{background:linear-gradient(135deg,var(--green) 0%,#1a3d24 100%);padding:1.5rem 2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;}
+  .result-header-left{}
+  .result-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;color:var(--cream);margin-bottom:0.2rem;}
+  .result-subtitle{font-size:0.78rem;color:rgba(240,234,216,0.5);letter-spacing:1px;}
+
+  /* Probability gauge */
+  .probability-block{text-align:center;flex-shrink:0;}
+  .prob-circle{width:80px;height:80px;border-radius:50%;border:3px solid rgba(212,169,74,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.2);}
+  .prob-num{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:1px;color:var(--gold);line-height:1;}
+  .prob-label{font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:rgba(212,169,74,0.6);}
+
+  .result-body{padding:1.8rem 2rem;display:flex;flex-direction:column;gap:1.4rem;}
+
+  /* Cause list */
+  .causes-list{display:flex;flex-direction:column;gap:0.7rem;}
+  .cause-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;display:flex;gap:1rem;align-items:flex-start;}
+  .cause-rank{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:1px;color:var(--gold);flex-shrink:0;line-height:1;margin-top:2px;}
+  .cause-content{}
+  .cause-name{font-weight:600;font-size:0.88rem;color:var(--cream);margin-bottom:0.2rem;}
+  .cause-desc{font-size:0.8rem;color:var(--muted);line-height:1.5;}
+  .cause-prob-bar{height:4px;background:rgba(255,255,255,0.05);border-radius:20px;margin-top:0.5rem;overflow:hidden;}
+  .cause-prob-fill{height:100%;background:var(--gold);border-radius:20px;transition:width 1s cubic-bezier(0.4,0,0.2,1);}
+
+  /* Drill spotlight */
+  .drill-spotlight{background:linear-gradient(135deg,rgba(42,107,63,0.25) 0%,rgba(11,26,18,0) 100%);border:1px solid rgba(42,107,63,0.3);border-radius:10px;padding:1.3rem 1.5rem;}
+  .drill-header{display:flex;align-items:center;gap:0.7rem;margin-bottom:0.8rem;}
+  .drill-icon{font-size:1.4rem;}
+  .drill-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--cream);}
+  .drill-time{font-size:0.68rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(212,169,74,0.2);padding:0.2rem 0.6rem;border-radius:20px;margin-left:auto;}
+  .drill-desc{font-size:0.85rem;color:rgba(240,234,216,0.75);line-height:1.7;}
+
+  /* Quick fix */
+  .quick-fix{display:flex;align-items:flex-start;gap:1rem;background:var(--gold-dim);border:1px solid rgba(212,169,74,0.2);border-radius:10px;padding:1.2rem 1.5rem;}
+  .quick-fix-icon{font-size:1.5rem;flex-shrink:0;}
+  .quick-fix-label{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:0.3rem;}
+  .quick-fix-text{font-size:0.9rem;color:var(--cream);line-height:1.6;font-style:italic;}
+
+  /* Reset */
+  .reset-area{text-align:center;padding-top:0.5rem;}
+  .reset-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.8rem;padding:0.5rem 1.2rem;border-radius:6px;cursor:pointer;transition:all 0.2s;}
+  .reset-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+  /* Loading */
+  .loading-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3rem;text-align:center;display:none;flex-direction:column;align-items:center;gap:1rem;}
+  .loading-card.visible{display:flex;}
+  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;color:var(--muted);}
+  .loading-sub{font-size:0.8rem;color:rgba(240,234,216,0.25);}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+  @media(max-width:680px){
+    .option-grid{grid-template-columns:1fr 1fr;}
+    .nav-tabs{display:none;}
+    .main{padding:1.5rem 1rem;}
+    .result-header{flex-direction:column;}
+  }
+
+  /* Paywall Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2.5rem;max-width:400px;width:100%;text-align:center;animation:modalIn 0.3s ease both;}
+  @keyframes modalIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+  .modal-icon{font-size:2.5rem;margin-bottom:0.8rem;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;margin-bottom:0.5rem;}
+  .modal-title span{color:var(--gold);}
+  .modal-sub{font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;}
+  .modal-price{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold);line-height:1;margin-bottom:1rem;}
+  .modal-price sub{font-size:1rem;color:var(--muted);}
+  .modal-feats{display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;text-align:left;}
+  .modal-feats li{font-size:0.83rem;color:var(--cream);list-style:none;display:flex;align-items:center;gap:0.5rem;}
+  .modal-feats li::before{content:'⛳';font-size:0.75rem;}
+  .btn-go-pro{width:100%;background:var(--gold);color:var(--bg);border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;transition:all 0.2s;}
+  .btn-go-pro:hover{background:#e0bc60;}
+  .btn-dismiss{background:none;border:none;color:var(--muted);font-size:0.78rem;cursor:pointer;margin-top:0.8rem;text-decoration:underline;font-family:'DM Sans',sans-serif;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="logo-ball">⛳</div>Caddie <span>AI</span></a>
+  <div class="nav-tabs">
+    <button class="nav-tab" onclick="location.href='index.html'">💬 Ask Caddie</button>
+    <button class="nav-tab" onclick="location.href='analyzer.html'">📷 Swing Analyzer</button>
+    <button class="nav-tab active">🔍 Swing Detective</button>
+    <button class="nav-tab" onclick="location.href='lie-whisperer.html'">🌿 Lie Whisperer</button>
+  </div>
+  <div class="nav-right">
+    <span class="tier-badge tier-pro" id="tierBadge">PRO</span>
+    <span id="navUserName">Golfer</span>
+    <button onclick="location.href='settings.html'" style="background:transparent;border:1px solid rgba(255,255,255,0.07);color:rgba(240,234,216,0.6);font-family:'DM Sans',sans-serif;font-size:0.78rem;padding:0.35rem 0.8rem;border-radius:6px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#d4a94a';this.style.color='#d4a94a'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)';this.style.color='rgba(240,234,216,0.6)'">⚙️ Settings</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <div class="page-badge">🔍 Forensic Swing Diagnosis</div>
+    <div class="page-title">Swing <span>Detective</span></div>
+    <p class="page-sub">No camera needed. Tell us what happened after your shot — we'll diagnose exactly what went wrong and give you a 30-second fix.</p>
+  </div>
+
+  <!-- STEPPER -->
+  <div class="stepper">
+    <div class="step-item">
+      <div class="step-num active" id="stepNum0">1</div>
+      <div class="step-label active" id="stepLabel0">Ball Flight</div>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-item">
+      <div class="step-num" id="stepNum1">2</div>
+      <div class="step-label" id="stepLabel1">Divot Pattern</div>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-item">
+      <div class="step-num" id="stepNum2">3</div>
+      <div class="step-label" id="stepLabel2">Contact Point</div>
+    </div>
+  </div>
+
+  <!-- STEP 1: Ball Flight -->
+  <div class="step-panel active" id="step0">
+    <div class="step-title">What did the ball do?</div>
+    <p class="step-sub">Select the ball flight that best matches what you saw.</p>
+
+    <div class="option-grid">
+      <div class="option-card" data-step="0" data-val="Slice (curves hard right)" onclick="selectOption(this,0)">
+        <div class="option-icon">↗️</div>
+        <div class="option-label">Slice</div>
+        <div class="option-desc">Curves hard right (for right-handers)</div>
+      </div>
+      <div class="option-card" data-step="0" data-val="Hook (curves hard left)" onclick="selectOption(this,0)">
+        <div class="option-icon">↖️</div>
+        <div class="option-label">Hook</div>
+        <div class="option-desc">Curves hard left</div>
+      </div>
+      <div class="option-card" data-step="0" data-val="Push (straight right, no curve)" onclick="selectOption(this,0)">
+        <div class="option-icon">➡️</div>
+        <div class="option-label">Push</div>
+        <div class="option-desc">Straight right, no curve</div>
+      </div>
+      <div class="option-card" data-step="0" data-val="Pull (straight left, no curve)" onclick="selectOption(this,0)">
+        <div class="option-icon">⬅️</div>
+        <div class="option-label">Pull</div>
+        <div class="option-desc">Straight left, no curve</div>
+      </div>
+      <div class="option-card" data-step="0" data-val="Thin/Topped (low, skimming ground)" onclick="selectOption(this,0)">
+        <div class="option-icon">📉</div>
+        <div class="option-label">Thin / Topped</div>
+        <div class="option-desc">Low, skimming the ground</div>
+      </div>
+      <div class="option-card" data-step="0" data-val="Fat (hit ground before ball, short)" onclick="selectOption(this,0)">
+        <div class="option-icon">💥</div>
+        <div class="option-label">Fat</div>
+        <div class="option-desc">Hit ground first, came up short</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:1.2rem;">
+      <div class="step-sub" style="margin-bottom:0.6rem;">Club used (optional but helps accuracy):</div>
+      <div class="club-row" id="clubRow">
+        <div class="club-chip selected" onclick="selectClub(this,'Not specified')">Any Club</div>
+        <div class="club-chip" onclick="selectClub(this,'Driver')">Driver</div>
+        <div class="club-chip" onclick="selectClub(this,'Wood/Hybrid')">Wood/Hybrid</div>
+        <div class="club-chip" onclick="selectClub(this,'Long Iron (3-5)')">Long Iron</div>
+        <div class="club-chip" onclick="selectClub(this,'Mid Iron (6-7)')">Mid Iron</div>
+        <div class="club-chip" onclick="selectClub(this,'Short Iron (8-9)')">Short Iron</div>
+        <div class="club-chip" onclick="selectClub(this,'Wedge')">Wedge</div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn btn-gold" id="next0" onclick="nextStep(1)" disabled>Next: Divot Pattern →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Divot Pattern -->
+  <div class="step-panel" id="step1">
+    <div class="step-title">What did the divot look like?</div>
+    <p class="step-sub">The divot tells us everything about your swing path. No divot? Select "Clean."</p>
+
+    <div class="option-grid two-col">
+      <div class="option-card" data-step="1" data-val="No divot / clean contact (ball-first)" onclick="selectOption(this,1)">
+        <div class="option-icon">✅</div>
+        <div class="option-label">Clean / No Divot</div>
+        <div class="option-desc">Ball first, barely any turf taken</div>
+      </div>
+      <div class="option-card" data-step="1" data-val="Deep divot (too steep, hitting too far down)" onclick="selectOption(this,1)">
+        <div class="option-icon">⬇️</div>
+        <div class="option-label">Deep Divot</div>
+        <div class="option-desc">Took a big chunk of turf</div>
+      </div>
+      <div class="option-card" data-step="1" data-val="Divot points left (outside-in swing path)" onclick="selectOption(this,1)">
+        <div class="option-icon">↙️</div>
+        <div class="option-label">Points Left</div>
+        <div class="option-desc">Divot angled left of target</div>
+      </div>
+      <div class="option-card" data-step="1" data-val="Divot points right (inside-out swing path)" onclick="selectOption(this,1)">
+        <div class="option-icon">↘️</div>
+        <div class="option-label">Points Right</div>
+        <div class="option-desc">Divot angled right of target</div>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="btn btn-ghost" onclick="prevStep(0)">← Back</button>
+      <button class="btn btn-gold" id="next1" onclick="nextStep(2)" disabled>Next: Contact Point →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Contact Point -->
+  <div class="step-panel" id="step2">
+    <div class="step-title">Where on the face did you hit it?</div>
+    <p class="step-sub">If you felt it at impact or heard the sound, you can usually tell. Guess if unsure.</p>
+
+    <div class="option-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div class="option-card" data-step="2" data-val="Toe (felt a slight twist, ball went right)" onclick="selectOption(this,2)">
+        <div class="option-icon">👈</div>
+        <div class="option-label">Toe</div>
+        <div class="option-desc">Felt twist, went right</div>
+      </div>
+      <div class="option-card" data-step="2" data-val="Center (solid contact)" onclick="selectOption(this,2)">
+        <div class="option-icon">🎯</div>
+        <div class="option-label">Center</div>
+        <div class="option-desc">Solid, no twist</div>
+      </div>
+      <div class="option-card" data-step="2" data-val="Heel/Hosel (shank risk, went hard right)" onclick="selectOption(this,2)">
+        <div class="option-icon">👉</div>
+        <div class="option-label">Heel / Hosel</div>
+        <div class="option-desc">Hard right, shank feel</div>
+      </div>
+    </div>
+
+    <div class="step-nav" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.8rem;">
+      <button class="btn btn-ghost" onclick="prevStep(1)">← Back</button>
+      <button class="btn btn-gold btn-lg" id="diagnoseBtn" onclick="runDiagnosis()" disabled>
+        <span id="diagnoseBtnText">🔍 Run Diagnosis</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-card" id="loadingCard">
+    <div class="spinner"></div>
+    <div class="loading-text">Analyzing Symptoms...</div>
+    <div class="loading-sub">Cross-referencing ball flight laws, divot data, and contact point</div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="result-header-left">
+        <div class="result-title" id="resultTitle">Diagnosis Complete</div>
+        <div class="result-subtitle" id="resultSubtitle">Based on your 3 symptoms</div>
+      </div>
+      <div class="probability-block">
+        <div class="prob-circle">
+          <div class="prob-num" id="probNum">—%</div>
+          <div class="prob-label">Confidence</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-body">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:0.8rem;">Most Likely Causes</div>
+        <div class="causes-list" id="causesList"></div>
+      </div>
+
+      <div class="drill-spotlight" id="drillSpotlight">
+        <div class="drill-header">
+          <div class="drill-icon">🏌️</div>
+          <div class="drill-name" id="drillName">Loading...</div>
+          <div class="drill-time">30 seconds</div>
+        </div>
+        <div class="drill-desc" id="drillDesc"></div>
+      </div>
+
+      <div class="quick-fix" id="quickFixEl">
+        <div class="quick-fix-icon">⚡</div>
+        <div>
+          <div class="quick-fix-label">On The Course Right Now</div>
+          <div class="quick-fix-text" id="quickFixText"></div>
+        </div>
+      </div>
+
+      <div class="reset-area">
+        <button class="reset-btn" onclick="resetDetective()">↩ Diagnose Another Shot</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = localStorage.getItem('caddie_api_base') || 'https://mycaddieai.golf';
+const selections = { 0: null, 1: null, 2: null };
+let selectedClub = 'Not specified';
+
+function selectOption(el, step) {
+  document.querySelectorAll(`[data-step="${step}"]`).forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selections[step] = el.dataset.val;
+  const nextBtn = document.getElementById(`next${step}`) || document.getElementById('diagnoseBtn');
+  if (nextBtn) nextBtn.disabled = false;
+}
+
+function selectClub(el, val) {
+  document.querySelectorAll('.club-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedClub = val;
+}
+
+function nextStep(to) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`step${to}`).classList.add('active');
+  updateStepper(to);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function prevStep(to) {
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`step${to}`).classList.add('active');
+  updateStepper(to);
+}
+
+function updateStepper(currentStep) {
+  for (let i = 0; i < 3; i++) {
+    const num = document.getElementById(`stepNum${i}`);
+    const label = document.getElementById(`stepLabel${i}`);
+    num.classList.remove('active', 'done');
+    label.classList.remove('active');
+    if (i < currentStep) { num.classList.add('done'); num.textContent = '✓'; }
+    else if (i === currentStep) { num.classList.add('active'); label.classList.add('active'); num.textContent = i + 1; }
+    else { num.textContent = i + 1; }
+  }
+}
+
+async function runDiagnosis() {
+  const btn = document.getElementById('diagnoseBtn');
+  btn.disabled = true;
+  document.getElementById('diagnoseBtnText').textContent = 'Diagnosing...';
+
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('loadingCard').classList.add('visible');
+  document.getElementById('resultCard').classList.remove('visible');
+
+  const symptoms = {
+    ballFlight: selections[0],
+    divotPattern: selections[1],
+    contactPoint: selections[2],
+    club: selectedClub
+  };
+
+  try {
+    const token = localStorage.getItem('caddie_token') || '';
+    const res = await fetch(`${API_BASE}/api/detective`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ symptoms })
+    });
+
+    const json = await res.json();
+
+    if (res.status === 402 || json.error === 'free_limit_reached') {
+      document.getElementById('loadingCard').classList.remove('visible');
+      document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('step0').classList.add('active');
+      updateStepper(0);
+      document.getElementById('paywallModal').classList.add('open');
+      return;
+    }
+
+    if (!res.ok) {
+      document.getElementById('loadingCard').classList.remove('visible');
+      document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('step0').classList.add('active');
+      updateStepper(0);
+      alert(json.error || 'Something went wrong. Please try again.');
+      return;
+    }
+
+    let data = json.diagnosis;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data.replace(/```json|```/g, '').trim()); } catch(e) {}
+    }
+
+    renderResult(data, symptoms);
+  } catch(e) {
+    document.getElementById('loadingCard').classList.remove('visible');
+    document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('step0').classList.add('active');
+    updateStepper(0);
+    alert('Connection error. Please try again.');
+  }
+
+  btn.disabled = false;
+  document.getElementById('diagnoseBtnText').textContent = '🔍 Run Diagnosis';
+}
+
+async function getDemoResponse(symptoms) {
+  // Call Anthropic directly as fallback
+  const prompt = buildPrompt(symptoms);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: getDetectiveSystemPrompt(),
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const d = await res.json();
+    const text = d.content?.[0]?.text || '';
+    return JSON.parse(text.replace(/```json|```/g, '').trim());
+  } catch(e) {
+    return getFallbackData(symptoms);
+  }
+}
+
+function buildPrompt(s) {
+  return `Diagnose this golf shot:
+Ball flight: ${s.ballFlight}
+Divot pattern: ${s.divotPattern}
+Contact point: ${s.contactPoint}
+Club used: ${s.club}`;
+}
+
+function getDetectiveSystemPrompt() {
+  return `You are a forensic golf swing analyst. A golfer tells you what happened after a bad shot — you diagnose the root cause like a detective.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "primaryCause": "Short name of the #1 cause",
+  "confidence": 82,
+  "summary": "One confident sentence about the main fault",
+  "causes": [
+    { "rank": 1, "name": "Lead Hip Stalling", "probability": 82, "explanation": "What this means and why it produces this shot" },
+    { "rank": 2, "name": "Early Release", "probability": 65, "explanation": "Second most likely cause" },
+    { "rank": 3, "name": "Setup Issue", "probability": 40, "explanation": "Third possibility" }
+  ],
+  "drill": {
+    "name": "Drill name",
+    "duration": "30 seconds",
+    "description": "Simple drill they can do RIGHT NOW on the course or at the range. 2-3 sentences."
+  },
+  "onTheCourse": "One immediate swing thought for their very next shot. Keep it one sentence."
+}
+
+Rules: confidence is 0-100. probability per cause is 0-100. Be specific and confident. No hedging. JSON only.`;
+}
+
+function getFallbackData(s) {
+  const isSlice = s.ballFlight?.includes('Slice');
+  const isFat = s.ballFlight?.includes('Fat');
+  return {
+    primaryCause: isSlice ? "Outside-In Swing Path" : isFat ? "Early Weight Transfer" : "Club Face Alignment",
+    confidence: 78,
+    summary: isSlice ? "Your swing is traveling outside-to-in with an open face at impact — the classic slice combination." : "Your weight is staying too long on the back foot, causing the club to bottom out behind the ball.",
+    causes: [
+      { rank: 1, name: isSlice ? "Outside-In Path" : "Early Weight Shift", probability: 78, explanation: isSlice ? "Your club is cutting across the ball from outside the target line to inside, imparting left-to-right sidespin." : "Your weight isn't transferring to your lead foot in time, pushing the low point back behind the ball." },
+      { rank: 2, name: "Open Club Face", probability: 55, explanation: "The club face isn't squaring at impact, adding extra spin to the shot." },
+      { rank: 3, name: "Grip Pressure", probability: 30, explanation: "Too tight a grip inhibits the natural rotation of the forearms through impact." }
+    ],
+    drill: { name: "Gate Drill", duration: "30 seconds", description: "Place two tees just outside the heel and toe of your club at address. Make slow practice swings feeling the club swing from inside the gate on the downswing. If you clip a tee on the way down, you're coming over the top." },
+    onTheCourse: "Feel your trail elbow slot down close to your hip on the downswing — everything else follows."
+  };
+}
+
+function renderResult(data, symptoms) {
+  document.getElementById('loadingCard').classList.remove('visible');
+
+  document.getElementById('resultTitle').textContent = data.primaryCause || 'Diagnosis Complete';
+  document.getElementById('resultSubtitle').textContent = data.summary || '';
+  document.getElementById('probNum').textContent = `${data.confidence || 80}%`;
+
+  // Causes
+  const causesList = document.getElementById('causesList');
+  causesList.innerHTML = '';
+  (data.causes || []).forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'cause-item';
+    div.innerHTML = `
+      <div class="cause-rank">#${c.rank}</div>
+      <div class="cause-content" style="flex:1;">
+        <div class="cause-name">${c.name} <span style="float:right;font-size:0.75rem;color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:1px;">${c.probability}%</span></div>
+        <div class="cause-desc">${c.explanation}</div>
+        <div class="cause-prob-bar"><div class="cause-prob-fill" data-width="${c.probability}" style="width:0%;"></div></div>
+      </div>`;
+    causesList.appendChild(div);
+  });
+
+  setTimeout(() => {
+    document.querySelectorAll('.cause-prob-fill').forEach(bar => {
+      bar.style.width = bar.dataset.width + '%';
+    });
+  }, 100);
+
+  // Drill
+  if (data.drill) {
+    document.getElementById('drillName').textContent = data.drill.name || 'Practice Drill';
+    document.getElementById('drillDesc').textContent = data.drill.description || '';
+  }
+
+  // On the course
+  document.getElementById('quickFixText').textContent = data.onTheCourse || '';
+
+  document.getElementById('resultCard').classList.add('visible');
+  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetDetective() {
+  selections[0] = null; selections[1] = null; selections[2] = null;
+  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('next0').disabled = true;
+  document.getElementById('next1').disabled = true;
+  document.getElementById('diagnoseBtn').disabled = true;
+  document.getElementById('resultCard').classList.remove('visible');
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('step0').classList.add('active');
+  updateStepper(0);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Load user info
+window.addEventListener('load', () => {
+  const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+  if (user.name) document.getElementById('navUserName').textContent = user.name.split(' ')[0];
+  const badge = document.getElementById('tierBadge');
+  if (user.isPro) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+  else { badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free'; }
+});
+</script>
+
+<!-- Paywall Modal -->
+<div class="modal-overlay" id="paywallModal">
+  <div class="modal-box">
+    <div class="modal-icon">⛳</div>
+    <div class="modal-title">Go <span>Pro</span></div>
+    <div class="modal-sub">You've used your 2 free questions today. All 4 features share the limit.</div>
+    <div class="modal-price"><sup>$</sup>9<sub>/mo</sub></div>
+    <ul class="modal-feats">
+      <li>Unlimited Ask Caddie questions</li>
+      <li>Unlimited Swing Detective diagnoses</li>
+      <li>Unlimited Lie Whisperer reads</li>
+      <li>Unlimited Swing Analyzer photos</li>
+      <li>Cancel anytime</li>
+    </ul>
+    <button class="btn-go-pro" onclick="openUpgradeModal()">Upgrade to Pro — $9/mo</button>
+    <button class="btn-dismiss" onclick="document.getElementById('paywallModal').classList.remove('open')">Maybe later</button>
+  </div>
+</div>
+
+
+<!-- Inline Payment Modal -->
+<div class="modal-overlay" id="upgradeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);">
+  <div style="background:#122218;border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2rem;max-width:400px;width:100%;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⛳</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:0.4rem;">Go <span style="color:#d4a94a;">Pro</span></div>
+    <div style="font-size:0.83rem;color:rgba(240,234,216,0.45);margin-bottom:1rem;line-height:1.5;">Unlimited access to all 4 features. Cancel anytime.</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#d4a94a;line-height:1;margin-bottom:1rem;"><sup style="font-size:1.1rem;">$</sup>9<sub style="font-size:0.9rem;color:rgba(240,234,216,0.45);">/mo</sub></div>
+    <div id="inline-pay-error" style="color:#e74c3c;font-size:0.8rem;margin-bottom:0.6rem;display:none;text-align:left;"></div>
+    <div id="inline-card-element" style="background:#1a2e20;border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:0.9rem 1rem;margin-bottom:1rem;text-align:left;"></div>
+    <button id="inline-pay-btn" onclick="handleInlinePayment()" style="width:100%;background:#d4a94a;color:#0b1a12;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;margin-bottom:0.8rem;">Subscribe — $9/mo</button>
+    <button onclick="closeUpgradeModal()" style="background:none;border:none;color:rgba(240,234,216,0.45);font-size:0.78rem;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;">Cancel</button>
+  </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+  const STRIPE_PK = 'pk_live_51TLAzuLnJDmWQ4Zy8tCqe8DIozY86WDJe7i8Nbr8HlCEYxdhtqZw9nLeM2d6BjGVZV7ZfSDTZchVJxb8otDj3q1M00jP4GU59h';
+  const API = 'https://mycaddieai.golf';
+  let _stripe = null;
+  let _card = null;
+
+  window.openUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'flex';
+    document.getElementById('paywallModal')?.classList.remove('open');
+    if (!_stripe) {
+      try {
+        _stripe = Stripe(STRIPE_PK);
+        const els = _stripe.elements();
+        _card = els.create('card', {
+          style: { base: { color:'#f0ead8', fontFamily:'DM Sans,sans-serif', fontSize:'16px', '::placeholder':{ color:'rgba(240,234,216,0.4)' } } }
+        });
+        _card.mount('#inline-card-element');
+      } catch(e) { console.error('Stripe init error', e); }
+    }
+  };
+
+  window.closeUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'none';
+  };
+
+  window.handleInlinePayment = async function() {
+    if (!_stripe || !_card) { alert('Payment system loading. Please try again.'); return; }
+    const btn = document.getElementById('inline-pay-btn');
+    const err = document.getElementById('inline-pay-error');
+    btn.disabled = true; btn.textContent = 'Processing...';
+    err.style.display = 'none';
+
+    const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+    const token = localStorage.getItem('caddie_token') || '';
+
+    try {
+      const { paymentMethod, error } = await _stripe.createPaymentMethod({
+        type: 'card', card: _card,
+        billing_details: { email: user.email, name: user.name }
+      });
+
+      if (error) {
+        err.textContent = error.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+        return;
+      }
+
+      const res = await fetch(`${API}/api/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ paymentMethodId: paymentMethod.id })
+      });
+
+      const data = await res.json();
+
+      if (data.requiresAction) {
+        const { error: ce } = await _stripe.confirmCardPayment(data.clientSecret);
+        if (ce) {
+          err.textContent = ce.message; err.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+          return;
+        }
+      }
+
+      if (data.success) {
+        user.isPro = true;
+        localStorage.setItem('caddie_user', JSON.stringify(user));
+        closeUpgradeModal();
+        // Update tier badge
+        const badge = document.getElementById('tierBadge');
+        if (badge) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+        // Hide free banner
+        const fb = document.getElementById('freeBanner');
+        if (fb) fb.style.display = 'none';
+        // Hide paywallModal if open
+        const pm = document.getElementById('paywallModal');
+        if (pm) pm.classList.remove('open');
+        alert('🎉 Welcome to Pro! Unlimited access unlocked. Refreshing...');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        err.textContent = data.error || 'Payment failed. Please check your card.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+      }
+    } catch(e) {
+      err.textContent = 'Something went wrong. Please try again.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+    }
+  };
+
+  // Close on overlay click
+  document.getElementById('upgradeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
+  });
+})();
+</script>
+
+</body>
+</html>

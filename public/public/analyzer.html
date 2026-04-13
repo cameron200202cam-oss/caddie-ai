@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caddie AI — Swing Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Baskerville:ital,wght@0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1a12;
+    --surface: #122218;
+    --surface2: #1a2e20;
+    --border: rgba(255,255,255,0.07);
+    --gold: #d4a94a;
+    --gold-dim: rgba(212,169,74,0.1);
+    --green: #2a6b3f;
+    --cream: #f0ead8;
+    --muted: rgba(240,234,216,0.45);
+    --red: rgba(192,57,43,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(42,107,63,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 85% 85%, rgba(212,169,74,0.06) 0%, transparent 60%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* NAV */
+  nav {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:1.1rem 2rem;
+    border-bottom:1px solid var(--border);
+    position:relative;
+    z-index:10;
+  }
+
+  .logo {
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.6rem;
+    letter-spacing:2px;
+    color:var(--cream);
+    text-decoration:none;
+  }
+  .logo span { color:var(--gold); }
+  .logo-ball {
+    width:32px; height:32px;
+    background:var(--gold);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.95rem;
+  }
+
+  .nav-tabs {
+    display:flex;
+    gap:0.2rem;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:0.25rem;
+  }
+
+  .nav-tab {
+    font-family:'DM Sans', sans-serif;
+    font-size:0.8rem;
+    font-weight:500;
+    padding:0.45rem 1rem;
+    border-radius:5px;
+    cursor:pointer;
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    transition:all 0.2s;
+    letter-spacing:0.3px;
+  }
+  .nav-tab.active {
+    background:var(--gold);
+    color:var(--bg);
+  }
+  .nav-tab:hover:not(.active) { color:var(--cream); }
+
+  .nav-right {
+    display:flex;
+    align-items:center;
+    gap:0.8rem;
+    font-size:0.8rem;
+    color:var(--muted);
+  }
+
+  /* MAIN */
+  .main {
+    position:relative;
+    z-index:1;
+    max-width:1100px;
+    margin:0 auto;
+    padding:2.5rem 2rem;
+  }
+
+  /* PAGE HEADER */
+  .page-header {
+    margin-bottom:2.5rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .page-badge {
+    display:inline-flex;
+    align-items:center;
+    gap:0.5rem;
+    background:var(--gold-dim);
+    border:1px solid rgba(212,169,74,0.25);
+    color:var(--gold);
+    font-size:0.68rem;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    padding:0.35rem 0.9rem;
+    border-radius:20px;
+    margin-bottom:1rem;
+  }
+
+  .page-title {
+    font-family:'Bebas Neue', sans-serif;
+    font-size:clamp(2.5rem, 5vw, 4rem);
+    letter-spacing:2px;
+    line-height:0.95;
+    margin-bottom:0.6rem;
+  }
+  .page-title span { color:var(--gold); }
+
+  .page-sub {
+    font-family:'Libre Baskerville', serif;
+    font-style:italic;
+    font-size:0.95rem;
+    color:var(--muted);
+    max-width:520px;
+    line-height:1.7;
+  }
+
+  /* LAYOUT */
+  .analyzer-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1.5rem;
+    margin-bottom:1.5rem;
+  }
+
+  /* UPLOAD PANELS */
+  .upload-section {
+    display:flex;
+    flex-direction:column;
+    gap:1.2rem;
+  }
+
+  .section-label {
+    font-size:0.65rem;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:0.2rem;
+  }
+
+  .photo-slots {
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:0.8rem;
+  }
+
+  .photo-slot {
+    aspect-ratio:3/4;
+    background:var(--surface);
+    border:2px dashed rgba(212,169,74,0.2);
+    border-radius:10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:all 0.25s;
+    position:relative;
+    overflow:hidden;
+  }
+
+  .photo-slot:hover {
+    border-color:rgba(212,169,74,0.5);
+    background:var(--gold-dim);
+  }
+
+  .photo-slot.has-image {
+    border-style:solid;
+    border-color:rgba(212,169,74,0.4);
+  }
+
+  .photo-slot.has-image:hover .slot-overlay {
+    opacity:1;
+  }
+
+  .slot-placeholder {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0.5rem;
+    text-align:center;
+    padding:1rem;
+  }
+
+  .slot-icon { font-size:1.8rem; opacity:0.4; }
+
+  .slot-label {
+    font-size:0.72rem;
+    color:var(--muted);
+    font-weight:500;
+    letter-spacing:0.5px;
+  }
+
+  .slot-sublabel {
+    font-size:0.65rem;
+    color:rgba(240,234,216,0.25);
+    margin-top:0.1rem;
+  }
+
+  .slot-img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:none;
+  }
+
+  .photo-slot.has-image .slot-img { display:block; }
+  .photo-slot.has-image .slot-placeholder { display:none; }
+
+  .slot-overlay {
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:0.4rem;
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+
+  .slot-overlay-btn {
+    background:rgba(212,169,74,0.9);
+    color:var(--bg);
+    border:none;
+    border-radius:4px;
+    font-family:'DM Sans', sans-serif;
+    font-size:0.72rem;
+    font-weight:600;
+    padding:0.35rem 0.8rem;
+    cursor:pointer;
+  }
+
+  .slot-overlay-btn.remove {
+    background:rgba(192,57,43,0.8);
+    color:#fff;
+  }
+
+  input[type="file"] { display:none; }
+
+  /* SWING INFO */
+  .swing-info {
+    display:flex;
+    flex-direction:column;
+    gap:0.8rem;
+  }
+
+  .info-row {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0.8rem;
+  }
+
+  .info-group {
+    display:flex;
+    flex-direction:column;
+    gap:0.4rem;
+  }
+
+  label {
+    font-size:0.68rem;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  select, textarea.text-input, input.text-input {
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    color:var(--cream);
+    font-family:'DM Sans', sans-serif;
+    font-size:0.85rem;
+    padding:0.7rem 0.9rem;
+    outline:none;
+    transition:border-color 0.2s;
+    width:100%;
+  }
+
+  select {
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23d4a94a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    cursor:pointer;
+  }
+
+  select:focus, .text-input:focus { border-color:var(--gold); }
+  select::placeholder, .text-input::placeholder { color:var(--muted); }
+
+  textarea.text-input {
+    resize:none;
+    min-height:80px;
+    line-height:1.5;
+  }
+
+  /* ANALYZE BUTTON */
+  .analyze-btn {
+    width:100%;
+    background:var(--gold);
+    color:var(--bg);
+    border:none;
+    border-radius:8px;
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.2rem;
+    letter-spacing:2px;
+    padding:1rem;
+    cursor:pointer;
+    transition:all 0.25s;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0.7rem;
+  }
+
+  .analyze-btn:hover:not(:disabled) {
+    background:#e0bc60;
+    transform:translateY(-2px);
+    box-shadow:0 8px 24px rgba(212,169,74,0.25);
+  }
+
+  .analyze-btn:disabled {
+    opacity:0.4;
+    cursor:not-allowed;
+    transform:none;
+    box-shadow:none;
+  }
+
+  .analyze-btn .btn-spinner {
+    width:18px; height:18px;
+    border:2px solid rgba(11,26,18,0.3);
+    border-top-color:var(--bg);
+    border-radius:50%;
+    animation:spin 0.7s linear infinite;
+    display:none;
+  }
+
+  .analyze-btn.loading .btn-spinner { display:block; }
+  .analyze-btn.loading .btn-text { opacity:0.7; }
+
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* TIPS */
+  .tips-box {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:1.2rem;
+  }
+
+  .tips-title {
+    font-size:0.68rem;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:0.8rem;
+  }
+
+  .tips-list {
+    display:flex;
+    flex-direction:column;
+    gap:0.5rem;
+  }
+
+  .tip {
+    display:flex;
+    gap:0.6rem;
+    font-size:0.8rem;
+    color:var(--muted);
+    line-height:1.4;
+  }
+
+  .tip-icon { font-size:0.9rem; flex-shrink:0; margin-top:0.05rem; }
+
+  /* RESULTS PANEL */
+  .results-panel {
+    display:flex;
+    flex-direction:column;
+    gap:1rem;
+  }
+
+  /* Empty state */
+  .empty-state {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:3rem 2rem;
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1rem;
+    height:100%;
+    justify-content:center;
+  }
+
+  .empty-icon {
+    font-size:3rem;
+    opacity:0.3;
+    animation:float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-6px);}
+  }
+
+  .empty-title {
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.5rem;
+    letter-spacing:2px;
+    color:var(--muted);
+  }
+
+  .empty-sub {
+    font-size:0.82rem;
+    color:rgba(240,234,216,0.25);
+    max-width:260px;
+    line-height:1.6;
+  }
+
+  /* Analysis card */
+  .analysis-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+    animation:fadeUp 0.5s ease both;
+    display:none;
+  }
+
+  .analysis-card.visible { display:block; }
+
+  .analysis-header {
+    background:linear-gradient(135deg, var(--green) 0%, #1a3d24 100%);
+    padding:1.2rem 1.5rem;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+
+  .analysis-title {
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1.2rem;
+    letter-spacing:2px;
+    color:var(--cream);
+  }
+
+  .analysis-meta {
+    font-size:0.72rem;
+    color:rgba(240,234,216,0.5);
+    letter-spacing:1px;
+  }
+
+  .score-pill {
+    background:var(--gold);
+    color:var(--bg);
+    font-family:'Bebas Neue', sans-serif;
+    font-size:0.9rem;
+    letter-spacing:2px;
+    padding:0.3rem 0.9rem;
+    border-radius:20px;
+  }
+
+  .analysis-photos {
+    display:flex;
+    gap:0.5rem;
+    padding:1rem 1.5rem;
+    border-bottom:1px solid var(--border);
+    overflow-x:auto;
+  }
+
+  .analysis-photo {
+    width:80px;
+    height:100px;
+    object-fit:cover;
+    border-radius:6px;
+    border:1px solid var(--border);
+    flex-shrink:0;
+  }
+
+  .analysis-body {
+    padding:1.5rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.2rem;
+    max-height:520px;
+    overflow-y:auto;
+  }
+
+  .analysis-body::-webkit-scrollbar { width:3px; }
+  .analysis-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  /* Score meters */
+  .scores-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0.8rem;
+  }
+
+  .score-item {
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:0.8rem 1rem;
+  }
+
+  .score-name {
+    font-size:0.7rem;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:0.5rem;
+  }
+
+  .score-bar-wrap {
+    background:rgba(255,255,255,0.05);
+    border-radius:20px;
+    height:5px;
+    overflow:hidden;
+    margin-bottom:0.4rem;
+  }
+
+  .score-bar {
+    height:100%;
+    border-radius:20px;
+    background:var(--gold);
+    transition:width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    width:0%;
+  }
+
+  .score-bar.good { background:#2ecc71; }
+  .score-bar.mid { background:var(--gold); }
+  .score-bar.low { background:#e74c3c; }
+
+  .score-val {
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1rem;
+    letter-spacing:1px;
+    color:var(--cream);
+  }
+
+  /* Section blocks */
+  .result-section {
+    border-left:2px solid var(--gold);
+    padding-left:1rem;
+  }
+
+  .result-section-title {
+    font-family:'Bebas Neue', sans-serif;
+    font-size:1rem;
+    letter-spacing:2px;
+    color:var(--gold);
+    margin-bottom:0.5rem;
+  }
+
+  .result-section p {
+    font-size:0.85rem;
+    color:rgba(240,234,216,0.75);
+    line-height:1.7;
+  }
+
+  .result-section ul {
+    padding-left:1rem;
+    display:flex;
+    flex-direction:column;
+    gap:0.4rem;
+    margin-top:0.4rem;
+  }
+
+  .result-section li {
+    font-size:0.83rem;
+    color:rgba(240,234,216,0.7);
+    line-height:1.5;
+  }
+
+  .result-section strong { color:var(--gold); }
+
+  /* Issue tags */
+  .issue-tags {
+    display:flex;
+    flex-wrap:wrap;
+    gap:0.5rem;
+    margin-top:0.5rem;
+  }
+
+  .issue-tag {
+    font-size:0.72rem;
+    padding:0.25rem 0.7rem;
+    border-radius:20px;
+    border:1px solid;
+    letter-spacing:0.5px;
+  }
+
+  .tag-red { background:var(--red); border-color:rgba(192,57,43,0.4); color:#e74c3c; }
+  .tag-yellow { background:var(--gold-dim); border-color:rgba(212,169,74,0.3); color:var(--gold); }
+  .tag-green { background:rgba(46,204,113,0.1); border-color:rgba(46,204,113,0.3); color:#2ecc71; }
+
+  /* Loading skeleton */
+  .skeleton-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:1.5rem;
+    display:none;
+    flex-direction:column;
+    gap:1rem;
+    animation:fadeUp 0.3s ease both;
+  }
+
+  .skeleton-card.visible { display:flex; }
+
+  .skeleton {
+    background:linear-gradient(90deg, var(--surface2) 25%, rgba(42,107,63,0.15) 50%, var(--surface2) 75%);
+    background-size:200% 100%;
+    animation:shimmer 1.5s infinite;
+    border-radius:4px;
+  }
+
+  @keyframes shimmer {
+    0%{background-position:200% 0;}
+    100%{background-position:-200% 0;}
+  }
+
+  @keyframes fadeUp {
+    from{opacity:0;transform:translateY(16px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+
+  /* History strip */
+  .history-strip {
+    display:flex;
+    gap:0.8rem;
+    overflow-x:auto;
+    padding-bottom:0.5rem;
+    margin-bottom:0.5rem;
+  }
+
+  .history-strip::-webkit-scrollbar { height:3px; }
+  .history-strip::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  .history-thumb {
+    flex-shrink:0;
+    width:70px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+    cursor:pointer;
+    transition:border-color 0.2s;
+  }
+
+  .history-thumb:hover { border-color:var(--gold); }
+  .history-thumb img { width:100%; height:55px; object-fit:cover; }
+  .history-thumb-label { font-size:0.62rem; color:var(--muted); padding:0.3rem 0.4rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* Mobile */
+  @media(max-width:768px) {
+    .analyzer-grid { grid-template-columns:1fr; }
+    .photo-slots { grid-template-columns:repeat(3,1fr); }
+    .scores-grid { grid-template-columns:1fr; }
+    nav { padding:0.9rem 1rem; }
+    .main { padding:1.5rem 1rem; }
+    .nav-tabs { display:none; }
+  }
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2.5rem;max-width:400px;width:100%;text-align:center;animation:modalIn 0.3s ease both;}
+  @keyframes modalIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+  .modal-icon{font-size:2.5rem;margin-bottom:0.8rem;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;margin-bottom:0.5rem;}
+  .modal-title span{color:var(--gold);}
+  .modal-sub{font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;}
+  .modal-price{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold);line-height:1;margin-bottom:1rem;}
+  .modal-price sub{font-size:1rem;color:var(--muted);}
+  .modal-feats{display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;text-align:left;}
+  .modal-feats li{font-size:0.83rem;color:var(--cream);list-style:none;display:flex;align-items:center;gap:0.5rem;}
+  .modal-feats li::before{content:'⛳';font-size:0.75rem;}
+  .btn-go-pro{width:100%;background:var(--gold);color:var(--bg);border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;transition:all 0.2s;}
+  .btn-go-pro:hover{background:#e0bc60;}
+  .btn-dismiss{background:none;border:none;color:var(--muted);font-size:0.78rem;cursor:pointer;margin-top:0.8rem;text-decoration:underline;font-family:'DM Sans',sans-serif;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="logo"><div class="logo-ball">⛳</div>Caddie <span>AI</span></a>
+  <div class="nav-tabs">
+    <button class="nav-tab" onclick="location.href='index.html'">💬 Ask Caddie</button>
+    <button class="nav-tab active">📷 Swing Analyzer</button>
+    <button class="nav-tab" onclick="location.href='swing-detective.html'">🔍 Swing Detective</button>
+    <button class="nav-tab" onclick="location.href='lie-whisperer.html'">🌿 Lie Whisperer</button>
+  </div>
+  <div class="nav-right" id="navRight">
+    <span class="tier-badge tier-free" id="tierBadge">FREE</span>
+    <span id="navUserName">Golfer</span>
+    <button onclick="location.href='settings.html'" style="background:transparent;border:1px solid rgba(255,255,255,0.07);color:rgba(240,234,216,0.6);font-family:'DM Sans',sans-serif;font-size:0.78rem;padding:0.35rem 0.8rem;border-radius:6px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#d4a94a';this.style.color='#d4a94a'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)';this.style.color='rgba(240,234,216,0.6)'">⚙️ Settings</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <div class="page-badge">📷 New Feature</div>
+    <div class="page-title">Swing <span>Analyzer</span></div>
+    <p class="page-sub">Upload 1–3 photos of your swing. Your AI caddie will analyze your posture, grip, alignment, and mechanics — and tell you exactly what to fix.</p>
+  </div>
+
+  <div class="analyzer-grid">
+
+    <!-- LEFT: Upload + Controls -->
+    <div class="upload-section">
+      <div>
+        <div class="section-label">Upload Swing Photos</div>
+        <div class="photo-slots">
+
+          <!-- Slot 1: Address -->
+          <div class="photo-slot" id="slot0" onclick="triggerUpload(0)">
+            <div class="slot-placeholder">
+              <div class="slot-icon">📷</div>
+              <div class="slot-label">Address</div>
+              <div class="slot-sublabel">Setup position</div>
+            </div>
+            <img class="slot-img" id="img0" src="" alt="Address">
+            <div class="slot-overlay">
+              <button class="slot-overlay-btn" onclick="triggerUpload(0);event.stopPropagation()">Replace</button>
+              <button class="slot-overlay-btn remove" onclick="removePhoto(0);event.stopPropagation()">Remove</button>
+            </div>
+          </div>
+
+          <!-- Slot 2: Top of Backswing -->
+          <div class="photo-slot" id="slot1" onclick="triggerUpload(1)">
+            <div class="slot-placeholder">
+              <div class="slot-icon">📷</div>
+              <div class="slot-label">Backswing</div>
+              <div class="slot-sublabel">Top of swing</div>
+            </div>
+            <img class="slot-img" id="img1" src="" alt="Backswing">
+            <div class="slot-overlay">
+              <button class="slot-overlay-btn" onclick="triggerUpload(1);event.stopPropagation()">Replace</button>
+              <button class="slot-overlay-btn remove" onclick="removePhoto(1);event.stopPropagation()">Remove</button>
+            </div>
+          </div>
+
+          <!-- Slot 3: Impact/Follow Through -->
+          <div class="photo-slot" id="slot2" onclick="triggerUpload(2)">
+            <div class="slot-placeholder">
+              <div class="slot-icon">📷</div>
+              <div class="slot-label">Impact</div>
+              <div class="slot-sublabel">Follow through</div>
+            </div>
+            <img class="slot-img" id="img2" src="" alt="Impact">
+            <div class="slot-overlay">
+              <button class="slot-overlay-btn" onclick="triggerUpload(2);event.stopPropagation()">Replace</button>
+              <button class="slot-overlay-btn remove" onclick="removePhoto(2);event.stopPropagation()">Remove</button>
+            </div>
+          </div>
+
+        </div>
+        <input type="file" id="fileInput0" accept="image/*" onchange="handleFileSelect(0, this)">
+        <input type="file" id="fileInput1" accept="image/*" onchange="handleFileSelect(1, this)">
+        <input type="file" id="fileInput2" accept="image/*" onchange="handleFileSelect(2, this)">
+      </div>
+
+      <!-- Swing Details -->
+      <div class="swing-info">
+        <div class="section-label">Swing Details</div>
+
+        <div class="info-row">
+          <div class="info-group">
+            <label>Club Used</label>
+            <select id="clubUsed">
+              <option value="">Select club</option>
+              <option>Driver</option>
+              <option>3 Wood</option>
+              <option>5 Wood</option>
+              <option>Hybrid</option>
+              <option>3 Iron</option>
+              <option>4 Iron</option>
+              <option>5 Iron</option>
+              <option>6 Iron</option>
+              <option>7 Iron</option>
+              <option>8 Iron</option>
+              <option>9 Iron</option>
+              <option>Pitching Wedge</option>
+              <option>Gap Wedge</option>
+              <option>Sand Wedge</option>
+              <option>Lob Wedge</option>
+            </select>
+          </div>
+          <div class="info-group">
+            <label>Handedness</label>
+            <select id="handedness">
+              <option value="right-handed">Right Handed</option>
+              <option value="left-handed">Left Handed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-group">
+            <label>Skill Level</label>
+            <select id="skillLevel">
+              <option value="beginner">Beginner (30+ handicap)</option>
+              <option value="intermediate" selected>Intermediate (10–30)</option>
+              <option value="advanced">Advanced (under 10)</option>
+              <option value="scratch">Scratch / Pro</option>
+            </select>
+          </div>
+          <div class="info-group">
+            <label>Primary Miss</label>
+            <select id="primaryMiss">
+              <option value="">Not sure</option>
+              <option>Pulling left</option>
+              <option>Pushing right</option>
+              <option>Slicing</option>
+              <option>Hooking</option>
+              <option>Topping</option>
+              <option>Hitting fat</option>
+              <option>Shanking</option>
+              <option>Inconsistent contact</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="info-group">
+          <label>Tell Your Caddie Anything Else (optional)</label>
+          <textarea class="text-input" id="extraNotes" placeholder="e.g. 'I feel like I'm coming over the top' or 'my distance has dropped recently...'" rows="2"></textarea>
+        </div>
+      </div>
+
+      <!-- Analyze Button -->
+      <button class="analyze-btn" id="analyzeBtn" onclick="analyzeSwing()" disabled>
+        <div class="btn-spinner"></div>
+        <span class="btn-text">🔍 ANALYZE MY SWING</span>
+      </button>
+
+      <!-- Tips box -->
+      <div class="tips-box">
+        <div class="tips-title">📸 Photo Tips</div>
+        <div class="tips-list">
+          <div class="tip"><span class="tip-icon">✅</span><span>Shoot from directly down the target line or face-on for best results</span></div>
+          <div class="tip"><span class="tip-icon">✅</span><span>Get your full body in frame — head to feet</span></div>
+          <div class="tip"><span class="tip-icon">✅</span><span>Good lighting makes a big difference — outdoor is best</span></div>
+          <div class="tip"><span class="tip-icon">✅</span><span>Have someone take the photo or use a phone stand</span></div>
+          <div class="tip"><span class="tip-icon">⚠️</span><span>One photo works fine — more photos = more detailed analysis</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div class="results-panel">
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🏌️</div>
+        <div class="empty-title">Awaiting Your Swing</div>
+        <p class="empty-sub">Upload at least one photo and hit Analyze to get your personalized breakdown.</p>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div class="skeleton-card" id="skeletonCard">
+        <div class="skeleton" style="height:20px;width:40%;"></div>
+        <div class="skeleton" style="height:12px;width:100%;"></div>
+        <div class="skeleton" style="height:12px;width:85%;"></div>
+        <div class="skeleton" style="height:12px;width:90%;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:0.5rem;">
+          <div class="skeleton" style="height:70px;border-radius:8px;"></div>
+          <div class="skeleton" style="height:70px;border-radius:8px;"></div>
+          <div class="skeleton" style="height:70px;border-radius:8px;"></div>
+          <div class="skeleton" style="height:70px;border-radius:8px;"></div>
+        </div>
+        <div class="skeleton" style="height:12px;width:100%;margin-top:0.5rem;"></div>
+        <div class="skeleton" style="height:12px;width:80%;"></div>
+        <div class="skeleton" style="height:12px;width:95%;"></div>
+        <div class="skeleton" style="height:12px;width:70%;"></div>
+        <div style="margin-top:0.5rem;">
+          <div class="skeleton" style="height:16px;width:30%;margin-bottom:0.5rem;"></div>
+          <div class="skeleton" style="height:12px;width:100%;"></div>
+          <div class="skeleton" style="height:12px;width:88%;margin-top:0.4rem;"></div>
+          <div class="skeleton" style="height:12px;width:75%;margin-top:0.4rem;"></div>
+        </div>
+      </div>
+
+      <!-- Analysis Result -->
+      <div class="analysis-card" id="analysisCard">
+        <div class="analysis-header">
+          <div>
+            <div class="analysis-title">Swing Analysis Complete</div>
+            <div class="analysis-meta" id="analysisMeta">1 photo analyzed · Just now</div>
+          </div>
+          <div class="score-pill" id="overallScore">—</div>
+        </div>
+
+        <div class="analysis-photos" id="analysisPhotos"></div>
+
+        <div class="analysis-body" id="analysisBody">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════
+// CONFIG — Replace with your Vercel URL
+// ════════════════════════════════
+const API_BASE = 'https://mycaddieai.golf';
+const AUTH_TOKEN = localStorage.getItem('caddie_token') || ''; if (!AUTH_TOKEN) { location.href = 'index.html'; }
+
+// ════════════════════════════════
+// STATE
+// ════════════════════════════════
+const photos = [null, null, null]; // base64 strings
+
+// Compress image before sending to keep payload small
+async function compressImage(base64, maxWidth=1200, quality=0.8) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = base64;
+  });
+}
+const photoFiles = [null, null, null];
+
+// ════════════════════════════════
+// PHOTO UPLOAD
+// ════════════════════════════════
+function triggerUpload(index) {
+  document.getElementById(`fileInput${index}`).click();
+}
+
+function handleFileSelect(index, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Validate size (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Photo must be under 10MB. Try compressing it first.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const base64 = e.target.result;
+    photos[index] = base64;
+    photoFiles[index] = file;
+
+    // Show preview
+    const img = document.getElementById(`img${index}`);
+    img.src = base64;
+    document.getElementById(`slot${index}`).classList.add('has-image');
+
+    updateAnalyzeBtn();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto(index) {
+  photos[index] = null;
+  photoFiles[index] = null;
+  document.getElementById(`img${index}`).src = '';
+  document.getElementById(`slot${index}`).classList.remove('has-image');
+  document.getElementById(`fileInput${index}`).value = '';
+  updateAnalyzeBtn();
+}
+
+function updateAnalyzeBtn() {
+  const hasPhoto = photos.some(p => p !== null);
+  document.getElementById('analyzeBtn').disabled = !hasPhoto;
+}
+
+// ════════════════════════════════
+// ANALYZE
+// ════════════════════════════════
+async function analyzeSwing() {
+  const uploadedPhotos = photos.filter(p => p !== null);
+  if (uploadedPhotos.length === 0) return;
+
+  const club = document.getElementById('clubUsed').value;
+  const handedness = document.getElementById('handedness').value;
+  const skillLevel = document.getElementById('skillLevel').value;
+  const primaryMiss = document.getElementById('primaryMiss').value;
+  const extraNotes = document.getElementById('extraNotes').value.trim();
+
+  // UI loading state
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.querySelector('.btn-text').textContent = 'Analyzing...';
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('analysisCard').classList.remove('visible');
+  document.getElementById('skeletonCard').classList.add('visible');
+
+  try {
+    // Build context string
+    let context = `Golfer details:\n`;
+    context += `- Handedness: ${handedness}\n`;
+    context += `- Skill level: ${skillLevel}\n`;
+    if (club) context += `- Club used: ${club}\n`;
+    if (primaryMiss) context += `- Self-reported primary miss: ${primaryMiss}\n`;
+    if (extraNotes) context += `- Additional notes from golfer: ${extraNotes}\n`;
+    context += `\nNumber of photos provided: ${uploadedPhotos.length}`;
+
+    // Build message with images
+    const imageContents = uploadedPhotos.map((photo, i) => {
+      const base64Data = photo.split(',')[1];
+      const mediaType = photo.split(';')[0].split(':')[1];
+      return {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: mediaType,
+          data: base64Data
+        }
+      };
+    });
+
+    // Call backend analyze endpoint
+    const response = await fetch(`${API_BASE}/api/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      },
+      body: JSON.stringify({
+        images: await Promise.all(uploadedPhotos.map(async p => {
+          const compressed = await compressImage(p);
+          return {
+            data: compressed.split(',')[1],
+            mediaType: 'image/jpeg'
+          };
+        })),
+        context
+      })
+    });
+
+    const responseJson = await response.json();
+
+    if (response.status === 402 || responseJson.error === 'free_limit_reached') {
+      document.getElementById('skeletonCard').classList.remove('visible');
+      document.getElementById('emptyState').style.display = 'flex';
+      document.getElementById('paywallModal').classList.add('open');
+      return;
+    }
+
+    if (!response.ok) {
+      document.getElementById('skeletonCard').classList.remove('visible');
+      document.getElementById('emptyState').style.display = 'flex';
+      alert(responseJson.error || 'Something went wrong. Please try again.');
+      return;
+    }
+
+    let analysisText = responseJson.analysis;
+
+    renderAnalysis(analysisText, uploadedPhotos, uploadedPhotos.length);
+
+  } catch(err) {
+    console.error('Analysis error:', err);
+    document.getElementById('skeletonCard').classList.remove('visible');
+    document.getElementById('emptyState').style.display = 'flex';
+    alert('Something went wrong. Please try again.');
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  btn.querySelector('.btn-text').textContent = '🔍 ANALYZE MY SWING';
+  updateAnalyzeBtn();
+}
+
+function buildContext() {
+  const club = document.getElementById('clubUsed').value;
+  const handedness = document.getElementById('handedness').value;
+  const skillLevel = document.getElementById('skillLevel').value;
+  const primaryMiss = document.getElementById('primaryMiss').value;
+  const extraNotes = document.getElementById('extraNotes').value.trim();
+  const uploadedPhotos = photos.filter(p => p !== null);
+
+  let context = `Golfer details:\n`;
+  context += `- Handedness: ${handedness}\n`;
+  context += `- Skill level: ${skillLevel}\n`;
+  if (club) context += `- Club used: ${club}\n`;
+  if (primaryMiss) context += `- Self-reported primary miss: ${primaryMiss}\n`;
+  if (extraNotes) context += `- Additional notes: ${extraNotes}\n`;
+  context += `\nNumber of photos provided: ${uploadedPhotos.length}`;
+  return context;
+}
+
+// Direct Anthropic call (for when backend isn't set up yet)
+async function callAnthropicDirect(uploadedPhotos, context) {
+  const ANTHROPIC_KEY = 'YOUR_ANTHROPIC_API_KEY'; // Replace for demo
+
+  const imageContents = uploadedPhotos.map(photo => ({
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: photo.split(';')[0].split(':')[1],
+      data: photo.split(',')[1]
+    }
+  }));
+
+  const systemPrompt = getSwingAnalysisSystemPrompt();
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{
+        role: 'user',
+        content: [
+          ...imageContents,
+          { type: 'text', text: `Please analyze my golf swing from these photos.\n\n${context}` }
+        ]
+      }]
+    })
+  });
+
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content[0].text;
+}
+
+function getSwingAnalysisSystemPrompt() {
+  return `You are Caddie AI's elite swing analyst — a PGA-certified instructor with 20+ years of experience analyzing swings from photos. You have a gift for spotting mechanical issues quickly and explaining them in plain English.
+
+When analyzing swing photos, you MUST respond ONLY in valid JSON with this exact structure:
+
+{
+  "overallScore": "B+",
+  "summary": "One sentence overall assessment of the swing",
+  "scores": {
+    "setup": { "score": 75, "label": "Setup & Address" },
+    "grip": { "score": 82, "label": "Grip" },
+    "posture": { "score": 68, "label": "Posture" },
+    "alignment": { "score": 71, "label": "Alignment" }
+  },
+  "strengths": ["Specific strength 1", "Specific strength 2"],
+  "issues": [
+    {
+      "severity": "high",
+      "area": "Hip Turn",
+      "what": "Clear description of what you see wrong in the photo",
+      "why": "Why this causes problems / what miss it produces",
+      "fix": "Specific actionable fix"
+    },
+    {
+      "severity": "medium",
+      "area": "Grip Pressure",
+      "what": "...",
+      "why": "...",
+      "fix": "..."
+    }
+  ],
+  "drill": {
+    "name": "Drill Name",
+    "description": "3-4 sentence description of a specific drill to fix the biggest issue"
+  },
+  "onTheCourse": "One simple swing thought to take to the course"
+}
+
+Rules:
+- Be SPECIFIC about what you actually see in the photos. Don't be vague.
+- Reference body parts, positions, angles you can actually observe.
+- If a photo is blurry or unclear, note it but still give your best analysis.
+- severity must be "high", "medium", or "low"
+- overallScore uses letter grades: A+, A, A-, B+, B, B-, C+, C, C-, D
+- scores are 0-100 integers
+- Include 1-3 issues total
+- Include 1-3 strengths
+- Respond ONLY with the JSON object, no other text`;
+}
+
+// ════════════════════════════════
+// RENDER RESULTS
+// ════════════════════════════════
+function renderAnalysis(rawText, uploadedPhotos, photoCount) {
+  document.getElementById('skeletonCard').classList.remove('visible');
+
+  let data;
+  try {
+    const cleaned = rawText.replace(/```json|```/g, '').trim();
+    data = JSON.parse(cleaned);
+  } catch(e) {
+    // If JSON parsing fails, render as text
+    renderFallback(rawText, uploadedPhotos, photoCount);
+    return;
+  }
+
+  // Update header
+  document.getElementById('overallScore').textContent = data.overallScore || 'B';
+  document.getElementById('analysisMeta').textContent =
+    `${photoCount} photo${photoCount > 1 ? 's' : ''} analyzed · Just now`;
+
+  // Photos strip
+  const photosEl = document.getElementById('analysisPhotos');
+  photosEl.innerHTML = '';
+  uploadedPhotos.forEach((photo, i) => {
+    const labels = ['Address', 'Backswing', 'Impact'];
+    const img = document.createElement('img');
+    img.className = 'analysis-photo';
+    img.src = photo;
+    img.alt = labels[i] || `Photo ${i+1}`;
+    photosEl.appendChild(img);
+  });
+
+  // Build body
+  const body = document.getElementById('analysisBody');
+  body.innerHTML = '';
+
+  // Summary
+  if (data.summary) {
+    const summaryEl = document.createElement('div');
+    summaryEl.className = 'result-section';
+    summaryEl.innerHTML = `<div class="result-section-title">Overview</div><p>${data.summary}</p>`;
+    body.appendChild(summaryEl);
+  }
+
+  // Score meters
+  if (data.scores) {
+    const scoresEl = document.createElement('div');
+    scoresEl.innerHTML = '<div class="result-section-title" style="margin-bottom:0.6rem;">Mechanics Breakdown</div>';
+    const grid = document.createElement('div');
+    grid.className = 'scores-grid';
+
+    Object.values(data.scores).forEach(s => {
+      const scoreClass = s.score >= 80 ? 'good' : s.score >= 60 ? 'mid' : 'low';
+      grid.innerHTML += `
+        <div class="score-item">
+          <div class="score-name">${s.label}</div>
+          <div class="score-bar-wrap">
+            <div class="score-bar ${scoreClass}" data-width="${s.score}"></div>
+          </div>
+          <div class="score-val">${s.score}/100</div>
+        </div>`;
+    });
+
+    scoresEl.appendChild(grid);
+    body.appendChild(scoresEl);
+
+    // Animate bars after render
+    setTimeout(() => {
+      document.querySelectorAll('.score-bar[data-width]').forEach(bar => {
+        bar.style.width = bar.dataset.width + '%';
+      });
+    }, 100);
+  }
+
+  // Strengths
+  if (data.strengths && data.strengths.length > 0) {
+    const strengthsEl = document.createElement('div');
+    strengthsEl.className = 'result-section';
+    strengthsEl.style.borderColor = '#2ecc71';
+    strengthsEl.innerHTML = `<div class="result-section-title" style="color:#2ecc71;">✅ What You're Doing Well</div>
+      <ul>${data.strengths.map(s => `<li>${s}</li>`).join('')}</ul>`;
+    body.appendChild(strengthsEl);
+  }
+
+  // Issues
+  if (data.issues && data.issues.length > 0) {
+    const issuesEl = document.createElement('div');
+    issuesEl.className = 'result-section';
+
+    const severityColors = { high: '#e74c3c', medium: 'var(--gold)', low: '#2ecc71' };
+    const severityLabels = { high: '🔴 High Priority', medium: '🟡 Medium Priority', low: '🟢 Minor' };
+
+    let issuesHTML = '<div class="result-section-title">⚠️ Issues Found</div>';
+
+    data.issues.forEach(issue => {
+      const color = severityColors[issue.severity] || 'var(--gold)';
+      issuesHTML += `
+        <div style="margin-bottom:1rem;padding:0.9rem;background:var(--surface2);border-radius:8px;border-left:3px solid ${color};">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+            <strong style="color:${color};font-size:0.85rem;">${issue.area}</strong>
+            <span style="font-size:0.68rem;color:${color};letter-spacing:1px;text-transform:uppercase;">${severityLabels[issue.severity] || issue.severity}</span>
+          </div>
+          <p style="font-size:0.82rem;color:rgba(240,234,216,0.7);margin-bottom:0.4rem;line-height:1.5;"><strong style="color:var(--cream);">What I see:</strong> ${issue.what}</p>
+          <p style="font-size:0.82rem;color:rgba(240,234,216,0.7);margin-bottom:0.4rem;line-height:1.5;"><strong style="color:var(--cream);">Why it matters:</strong> ${issue.why}</p>
+          <p style="font-size:0.82rem;color:rgba(240,234,216,0.8);line-height:1.5;"><strong style="color:var(--gold);">Fix:</strong> ${issue.fix}</p>
+        </div>`;
+    });
+
+    issuesEl.innerHTML = issuesHTML;
+    body.appendChild(issuesEl);
+  }
+
+  // Drill
+  if (data.drill) {
+    const drillEl = document.createElement('div');
+    drillEl.className = 'result-section';
+    drillEl.style.borderColor = '#3498db';
+    drillEl.innerHTML = `
+      <div class="result-section-title" style="color:#3498db;">🏌️ Your Practice Drill</div>
+      <p style="font-weight:600;color:var(--cream);margin-bottom:0.4rem;">${data.drill.name}</p>
+      <p>${data.drill.description}</p>`;
+    body.appendChild(drillEl);
+  }
+
+  // On the course
+  if (data.onTheCourse) {
+    const courseEl = document.createElement('div');
+    courseEl.className = 'result-section';
+    courseEl.style.background = 'var(--gold-dim)';
+    courseEl.style.borderRadius = '8px';
+    courseEl.style.padding = '1rem';
+    courseEl.style.border = '1px solid rgba(212,169,74,0.25)';
+    courseEl.style.borderLeft = '3px solid var(--gold)';
+    courseEl.innerHTML = `
+      <div class="result-section-title">⛳ On The Course</div>
+      <p style="font-size:0.9rem;color:var(--cream);font-style:italic;">"${data.onTheCourse}"</p>`;
+    body.appendChild(courseEl);
+  }
+
+  document.getElementById('analysisCard').classList.add('visible');
+}
+
+function renderFallback(text, uploadedPhotos, photoCount) {
+  document.getElementById('overallScore').textContent = '📋';
+  document.getElementById('analysisMeta').textContent = `${photoCount} photo${photoCount > 1 ? 's' : ''} analyzed`;
+
+  const photosEl = document.getElementById('analysisPhotos');
+  photosEl.innerHTML = '';
+  uploadedPhotos.forEach(photo => {
+    const img = document.createElement('img');
+    img.className = 'analysis-photo';
+    img.src = photo;
+    photosEl.appendChild(img);
+  });
+
+  const body = document.getElementById('analysisBody');
+  body.innerHTML = `<div class="result-section"><div class="result-section-title">Analysis</div><p>${text.replace(/\n/g, '<br>')}</p></div>`;
+  document.getElementById('analysisCard').classList.add('visible');
+}
+</script>
+
+
+<div class="modal-overlay" id="paywallModal">
+  <div class="modal-box">
+    <div class="modal-icon">⛳</div>
+    <div class="modal-title">Go <span>Pro</span></div>
+    <div class="modal-sub">You've used your 2 free questions today. All 4 features share the limit.</div>
+    <div class="modal-price"><sup>$</sup>9<sub>/mo</sub></div>
+    <ul class="modal-feats">
+      <li>Unlimited Ask Caddie questions</li>
+      <li>Unlimited Swing Detective diagnoses</li>
+      <li>Unlimited Lie Whisperer reads</li>
+      <li>Unlimited Swing Analyzer photos</li>
+      <li>Cancel anytime</li>
+    </ul>
+    <button class="btn-go-pro" onclick="openUpgradeModal()">Upgrade to Pro — $9/mo</button>
+    <button class="btn-dismiss" onclick="document.getElementById('paywallModal').classList.remove('open')">Maybe later</button>
+  </div>
+</div>
+
+
+<!-- Inline Payment Modal -->
+<div class="modal-overlay" id="upgradeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);">
+  <div style="background:#122218;border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2rem;max-width:400px;width:100%;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⛳</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:0.4rem;">Go <span style="color:#d4a94a;">Pro</span></div>
+    <div style="font-size:0.83rem;color:rgba(240,234,216,0.45);margin-bottom:1rem;line-height:1.5;">Unlimited access to all 4 features. Cancel anytime.</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#d4a94a;line-height:1;margin-bottom:1rem;"><sup style="font-size:1.1rem;">$</sup>9<sub style="font-size:0.9rem;color:rgba(240,234,216,0.45);">/mo</sub></div>
+    <div id="inline-pay-error" style="color:#e74c3c;font-size:0.8rem;margin-bottom:0.6rem;display:none;text-align:left;"></div>
+    <div id="inline-card-element" style="background:#1a2e20;border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:0.9rem 1rem;margin-bottom:1rem;text-align:left;"></div>
+    <button id="inline-pay-btn" onclick="handleInlinePayment()" style="width:100%;background:#d4a94a;color:#0b1a12;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;margin-bottom:0.8rem;">Subscribe — $9/mo</button>
+    <button onclick="closeUpgradeModal()" style="background:none;border:none;color:rgba(240,234,216,0.45);font-size:0.78rem;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;">Cancel</button>
+  </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+  const STRIPE_PK = 'pk_live_51TLAzuLnJDmWQ4Zy8tCqe8DIozY86WDJe7i8Nbr8HlCEYxdhtqZw9nLeM2d6BjGVZV7ZfSDTZchVJxb8otDj3q1M00jP4GU59h';
+  const API = 'https://mycaddieai.golf';
+  let _stripe = null;
+  let _card = null;
+
+  window.openUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'flex';
+    document.getElementById('paywallModal')?.classList.remove('open');
+    if (!_stripe) {
+      try {
+        _stripe = Stripe(STRIPE_PK);
+        const els = _stripe.elements();
+        _card = els.create('card', {
+          style: { base: { color:'#f0ead8', fontFamily:'DM Sans,sans-serif', fontSize:'16px', '::placeholder':{ color:'rgba(240,234,216,0.4)' } } }
+        });
+        _card.mount('#inline-card-element');
+      } catch(e) { console.error('Stripe init error', e); }
+    }
+  };
+
+  window.closeUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'none';
+  };
+
+  window.handleInlinePayment = async function() {
+    if (!_stripe || !_card) { alert('Payment system loading. Please try again.'); return; }
+    const btn = document.getElementById('inline-pay-btn');
+    const err = document.getElementById('inline-pay-error');
+    btn.disabled = true; btn.textContent = 'Processing...';
+    err.style.display = 'none';
+
+    const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+    const token = localStorage.getItem('caddie_token') || '';
+
+    try {
+      const { paymentMethod, error } = await _stripe.createPaymentMethod({
+        type: 'card', card: _card,
+        billing_details: { email: user.email, name: user.name }
+      });
+
+      if (error) {
+        err.textContent = error.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+        return;
+      }
+
+      const res = await fetch(`${API}/api/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ paymentMethodId: paymentMethod.id })
+      });
+
+      const data = await res.json();
+
+      if (data.requiresAction) {
+        const { error: ce } = await _stripe.confirmCardPayment(data.clientSecret);
+        if (ce) {
+          err.textContent = ce.message; err.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+          return;
+        }
+      }
+
+      if (data.success) {
+        user.isPro = true;
+        localStorage.setItem('caddie_user', JSON.stringify(user));
+        closeUpgradeModal();
+        // Update tier badge
+        const badge = document.getElementById('tierBadge');
+        if (badge) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+        // Hide free banner
+        const fb = document.getElementById('freeBanner');
+        if (fb) fb.style.display = 'none';
+        // Hide paywallModal if open
+        const pm = document.getElementById('paywallModal');
+        if (pm) pm.classList.remove('open');
+        alert('🎉 Welcome to Pro! Unlimited access unlocked. Refreshing...');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        err.textContent = data.error || 'Payment failed. Please check your card.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+      }
+    } catch(e) {
+      err.textContent = 'Something went wrong. Please try again.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+    }
+  };
+
+  // Close on overlay click
+  document.getElementById('upgradeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
+  });
+})();
+
+// Load user info into nav on page load
+window.addEventListener('load', () => {
+  const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+  const nameEl = document.getElementById('navUserName');
+  const badge = document.getElementById('tierBadge');
+  if (nameEl && user.name) nameEl.textContent = user.name.split(' ')[0];
+  if (badge) {
+    if (user.isPro) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+    else { badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free'; }
+  }
+});
+</script>
+
+</body>
+</html>

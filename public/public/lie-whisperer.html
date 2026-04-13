@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caddie AI — Lie Whisperer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Baskerville:ital,wght@0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0b1a12; --surface:#122218; --surface2:#1a2e20;
+    --border:rgba(255,255,255,0.07); --gold:#d4a94a;
+    --gold-dim:rgba(212,169,74,0.10); --green:#2a6b3f;
+    --cream:#f0ead8; --muted:rgba(240,234,216,0.45);
+    --red:rgba(192,57,43,0.15); --blue:rgba(52,152,219,0.15);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--cream);font-family:'DM Sans',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(42,107,63,0.18) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 2rem;border-bottom:1px solid var(--border);position:relative;z-index:10;}
+  .logo{display:flex;align-items:center;gap:0.6rem;font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:var(--cream);text-decoration:none;}
+  .logo span{color:var(--gold);}
+  .logo-ball{width:32px;height:32px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.95rem;}
+  .nav-tabs{display:flex;gap:0.2rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.25rem;}
+  .nav-tab{font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;padding:0.4rem 0.9rem;border-radius:5px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.2s;}
+  .nav-tab.active{background:var(--gold);color:var(--bg);}
+  .nav-tab:hover:not(.active){color:var(--cream);}
+  .nav-right{display:flex;align-items:center;gap:0.8rem;font-size:0.8rem;color:var(--muted);}
+  .tier-badge{font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;padding:0.22rem 0.65rem;border-radius:20px;font-weight:600;}
+  .tier-pro{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,169,74,0.3);}
+  .tier-free{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+
+  .main{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:2.5rem 2rem;}
+
+  .page-header{margin-bottom:2.5rem;animation:fadeUp 0.5s ease both;}
+  .page-badge{display:inline-flex;align-items:center;gap:0.5rem;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.25);color:#2ecc71;font-size:0.68rem;letter-spacing:3px;text-transform:uppercase;padding:0.35rem 0.9rem;border-radius:20px;margin-bottom:1rem;}
+  .page-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,5vw,4rem);letter-spacing:2px;line-height:0.95;margin-bottom:0.6rem;}
+  .page-title span{color:var(--gold);}
+  .page-sub{font-family:'Libre Baskerville',serif;font-style:italic;font-size:0.95rem;color:var(--muted);max-width:540px;line-height:1.7;}
+
+  .app-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+
+  /* LEFT PANEL */
+  .left-panel{display:flex;flex-direction:column;gap:1.2rem;}
+
+  /* Photo Upload */
+  .upload-zone{aspect-ratio:4/3;background:var(--surface);border:2px dashed rgba(46,204,113,0.25);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;}
+  .upload-zone:hover{border-color:rgba(46,204,113,0.5);background:rgba(46,204,113,0.04);}
+  .upload-zone.has-image{border-style:solid;border-color:rgba(46,204,113,0.4);}
+  .upload-placeholder{display:flex;flex-direction:column;align-items:center;gap:0.8rem;text-align:center;padding:2rem;}
+  .upload-icon{font-size:3rem;opacity:0.4;animation:float 3s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+  .upload-label{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;color:var(--muted);}
+  .upload-sub{font-size:0.78rem;color:rgba(240,234,216,0.25);max-width:200px;line-height:1.5;}
+  .upload-img{width:100%;height:100%;object-fit:cover;display:none;}
+  .upload-zone.has-image .upload-img{display:block;}
+  .upload-zone.has-image .upload-placeholder{display:none;}
+  .upload-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.6rem;opacity:0;transition:opacity 0.2s;}
+  .upload-zone.has-image:hover .upload-overlay{opacity:1;}
+  .overlay-btn{background:rgba(212,169,74,0.9);color:var(--bg);border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:600;padding:0.4rem 1rem;cursor:pointer;}
+  .overlay-btn.remove{background:rgba(192,57,43,0.85);color:#fff;}
+  input[type="file"]{display:none;}
+
+  /* Context inputs */
+  .context-section{display:flex;flex-direction:column;gap:0.8rem;}
+  .section-label{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:0.2rem;}
+  .input-row{display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;}
+  .form-group{display:flex;flex-direction:column;gap:0.4rem;}
+  label{font-size:0.68rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+  select,input.text-in{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:0.83rem;padding:0.65rem 0.9rem;outline:none;transition:border-color 0.2s;width:100%;}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23d4a94a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;}
+  select:focus,input.text-in:focus{border-color:var(--gold);}
+
+  /* Analyze btn */
+  .analyze-btn{width:100%;background:linear-gradient(135deg,#2a6b3f 0%,#1a4a2a 100%);color:var(--cream);border:1px solid rgba(46,204,113,0.3);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;padding:1rem;cursor:pointer;transition:all 0.25s;display:flex;align-items:center;justify-content:center;gap:0.7rem;}
+  .analyze-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 24px rgba(42,107,63,0.3);border-color:rgba(46,204,113,0.5);}
+  .analyze-btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
+  .btn-spinner{width:18px;height:18px;border:2px solid rgba(240,234,216,0.2);border-top-color:var(--cream);border-radius:50%;animation:spin 0.7s linear infinite;display:none;}
+  .analyze-btn.loading .btn-spinner{display:block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* Tips */
+  .tips-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.1rem;}
+  .tips-title{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;color:#2ecc71;margin-bottom:0.8rem;}
+  .tip{display:flex;gap:0.6rem;font-size:0.78rem;color:var(--muted);line-height:1.4;margin-bottom:0.4rem;}
+
+  /* RIGHT PANEL - Results */
+  .right-panel{}
+
+  .empty-state{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3rem 2rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1rem;min-height:400px;justify-content:center;}
+  .empty-icon{font-size:3rem;opacity:0.2;animation:float 3s ease-in-out infinite;}
+  .empty-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--muted);}
+  .empty-sub{font-size:0.8rem;color:rgba(240,234,216,0.22);max-width:220px;line-height:1.6;}
+
+  /* Loading */
+  .loading-state{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3rem 2rem;text-align:center;display:none;flex-direction:column;align-items:center;gap:1rem;min-height:400px;justify-content:center;}
+  .loading-state.visible{display:flex;}
+  .spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:#2ecc71;border-radius:50%;animation:spin 0.8s linear infinite;}
+  .loading-text{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;color:var(--muted);}
+  .loading-sub{font-size:0.78rem;color:rgba(240,234,216,0.2);}
+
+  /* Result card */
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:none;animation:fadeUp 0.5s ease both;}
+  .result-card.visible{display:block;}
+
+  /* Lie detected header */
+  .lie-header{padding:1.5rem;background:linear-gradient(135deg,var(--green) 0%,#0f2918 100%);display:flex;gap:1rem;align-items:flex-start;}
+  .lie-badge-wrap{flex-shrink:0;}
+  .lie-badge{display:inline-block;font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;padding:0.3rem 0.8rem;border-radius:20px;font-weight:700;}
+  .lie-safe{background:rgba(46,204,113,0.2);color:#2ecc71;border:1px solid rgba(46,204,113,0.3);}
+  .lie-caution{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,169,74,0.3);}
+  .lie-danger{background:var(--red);color:#e74c3c;border:1px solid rgba(192,57,43,0.3);}
+  .lie-type{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:var(--cream);margin-top:0.3rem;}
+  .lie-summary{font-size:0.82rem;color:rgba(240,234,216,0.6);line-height:1.5;margin-top:0.3rem;}
+
+  /* Photo with overlay */
+  .photo-analysis-wrap{position:relative;border-bottom:1px solid var(--border);}
+  .photo-analysis-img{width:100%;max-height:220px;object-fit:cover;display:block;}
+  .photo-overlay-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+
+  /* Stat pills */
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;padding:1rem 1.2rem;border-bottom:1px solid var(--border);}
+  .stat-pill{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.7rem;text-align:center;}
+  .stat-value{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:1px;color:var(--gold);}
+  .stat-label{font-size:0.62rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:0.15rem;}
+
+  /* Advice sections */
+  .advice-body{padding:1.2rem;display:flex;flex-direction:column;gap:1rem;}
+
+  .advice-block{border-radius:8px;padding:1rem 1.1rem;}
+  .advice-block.warn{background:var(--red);border:1px solid rgba(192,57,43,0.25);}
+  .advice-block.tip{background:var(--gold-dim);border:1px solid rgba(212,169,74,0.2);}
+  .advice-block.info{background:var(--blue);border:1px solid rgba(52,152,219,0.2);}
+  .advice-block.go{background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.2);}
+
+  .advice-title{font-size:0.65rem;letter-spacing:3px;text-transform:uppercase;margin-bottom:0.5rem;}
+  .warn .advice-title{color:#e74c3c;}
+  .tip .advice-title{color:var(--gold);}
+  .info .advice-title{color:#3498db;}
+  .go .advice-title{color:#2ecc71;}
+
+  .advice-text{font-size:0.85rem;color:rgba(240,234,216,0.8);line-height:1.65;}
+  .advice-text strong{color:var(--cream);}
+
+  .reset-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.78rem;padding:0.45rem 1.1rem;border-radius:6px;cursor:pointer;transition:all 0.2s;margin:0 1.2rem 1.2rem;}
+  .reset-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+  @media(max-width:768px){
+    .app-grid{grid-template-columns:1fr;}
+    .nav-tabs{display:none;}
+    .main{padding:1.5rem 1rem;}
+    .input-row{grid-template-columns:1fr;}
+    .stat-grid{grid-template-columns:1fr 1fr;}
+  }
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2.5rem;max-width:400px;width:100%;text-align:center;animation:modalIn 0.3s ease both;}
+  @keyframes modalIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+  .modal-icon{font-size:2.5rem;margin-bottom:0.8rem;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;margin-bottom:0.5rem;}
+  .modal-title span{color:var(--gold);}
+  .modal-sub{font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;}
+  .modal-price{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--gold);line-height:1;margin-bottom:1rem;}
+  .modal-price sub{font-size:1rem;color:var(--muted);}
+  .modal-feats{display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.5rem;text-align:left;}
+  .modal-feats li{font-size:0.83rem;color:var(--cream);list-style:none;display:flex;align-items:center;gap:0.5rem;}
+  .modal-feats li::before{content:'⛳';font-size:0.75rem;}
+  .btn-go-pro{width:100%;background:var(--gold);color:var(--bg);border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;transition:all 0.2s;}
+  .btn-go-pro:hover{background:#e0bc60;}
+  .btn-dismiss{background:none;border:none;color:var(--muted);font-size:0.78rem;cursor:pointer;margin-top:0.8rem;text-decoration:underline;font-family:'DM Sans',sans-serif;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="logo-ball">⛳</div>Caddie <span>AI</span></a>
+  <div class="nav-tabs">
+    <button class="nav-tab" onclick="location.href='index.html'">💬 Ask Caddie</button>
+    <button class="nav-tab" onclick="location.href='analyzer.html'">📷 Swing Analyzer</button>
+    <button class="nav-tab" onclick="location.href='swing-detective.html'">🔍 Swing Detective</button>
+    <button class="nav-tab active">🌿 Lie Whisperer</button>
+  </div>
+  <div class="nav-right">
+    <span class="tier-badge tier-pro" id="tierBadge">PRO</span>
+    <span id="navUserName">Golfer</span>
+    <button onclick="location.href='settings.html'" style="background:transparent;border:1px solid rgba(255,255,255,0.07);color:rgba(240,234,216,0.6);font-family:'DM Sans',sans-serif;font-size:0.78rem;padding:0.35rem 0.8rem;border-radius:6px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#d4a94a';this.style.color='#d4a94a'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)';this.style.color='rgba(240,234,216,0.6)'">⚙️ Settings</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <div class="page-badge">🌿 Tactical Shot Intelligence</div>
+    <div class="page-title">Lie <span>Whisperer</span></div>
+    <p class="page-sub">Take a photo of your ball in the grass. Your AI caddie reads the lie, calculates how it'll affect the ball, and tells you exactly how to adjust your shot.</p>
+  </div>
+
+  <div class="app-grid">
+    <!-- LEFT -->
+    <div class="left-panel">
+      <div>
+        <div class="section-label">Photo of Your Lie</div>
+        <div class="upload-zone" id="uploadZone" onclick="triggerUpload()">
+          <div class="upload-placeholder">
+            <div class="upload-icon">🌿</div>
+            <div class="upload-label">Tap to photograph your lie</div>
+            <div class="upload-sub">Get close — show the ball and the grass around it clearly</div>
+          </div>
+          <img class="upload-img" id="lieImg" src="" alt="Lie photo">
+          <div class="upload-overlay">
+            <button class="overlay-btn" onclick="triggerUpload();event.stopPropagation()">New Photo</button>
+            <button class="overlay-btn remove" onclick="removePhoto();event.stopPropagation()">Remove</button>
+          </div>
+        </div>
+        <input type="file" id="lieFileInput" accept="image/*" onchange="handlePhoto(this)">
+      </div>
+
+      <div class="context-section">
+        <div class="section-label">Shot Context</div>
+        <div class="input-row">
+          <div class="form-group">
+            <label>Distance to Pin</label>
+            <select id="distancePin">
+              <option value="not sure">Not sure</option>
+              <option value="under 50 yards">Under 50 yds</option>
+              <option value="50-100 yards">50–100 yds</option>
+              <option value="100-150 yards">100–150 yds</option>
+              <option value="150-200 yards">150–200 yds</option>
+              <option value="over 200 yards">200+ yds</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Club You're Thinking</label>
+            <select id="intendedClub">
+              <option value="not decided">Not decided</option>
+              <option>Driver</option>
+              <option>3 Wood</option>
+              <option>Hybrid</option>
+              <option>Long Iron (3-5)</option>
+              <option>Mid Iron (6-7)</option>
+              <option>Short Iron (8-9)</option>
+              <option>Pitching Wedge</option>
+              <option>Gap Wedge</option>
+              <option>Sand Wedge</option>
+              <option>Lob Wedge</option>
+            </select>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="form-group">
+            <label>Shot Shape Goal</label>
+            <select id="shotShape">
+              <option value="straight">Straight</option>
+              <option value="slight draw">Slight Draw</option>
+              <option value="slight fade">Slight Fade</option>
+              <option value="high shot">High Shot</option>
+              <option value="low runner">Low Runner</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Wind</label>
+            <select id="wind">
+              <option value="no wind">No wind</option>
+              <option value="into wind">Into wind</option>
+              <option value="downwind">Downwind</option>
+              <option value="crosswind left">Crosswind (L)</option>
+              <option value="crosswind right">Crosswind (R)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button class="analyze-btn" id="analyzeBtn" onclick="analyzeLie()" disabled>
+        <div class="btn-spinner"></div>
+        <span id="analyzeBtnText">🌿 READ MY LIE</span>
+      </button>
+
+      <div class="tips-box">
+        <div class="tips-title">📸 Photo Tips for Best Results</div>
+        <div class="tip">✅ <span>Crouch down to ball level — shoot from behind the ball</span></div>
+        <div class="tip">✅ <span>Get the grass AND ball both in frame clearly</span></div>
+        <div class="tip">✅ <span>Natural daylight works best</span></div>
+        <div class="tip">⚠️ <span>Avoid shadows directly over the ball</span></div>
+        <div class="tip">⛳ <span>Works for fairway, rough, bunker edge, tight lies</span></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-panel">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🌿</div>
+        <div class="empty-title">Awaiting Your Lie</div>
+        <p class="empty-sub">Upload a photo of your ball in the grass to get your tactical read.</p>
+      </div>
+
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <div class="loading-text">Reading Your Lie...</div>
+        <div class="loading-sub">Analyzing grass type, density, ball position and contact angle</div>
+      </div>
+
+      <div class="result-card" id="resultCard">
+        <!-- Header -->
+        <div class="lie-header">
+          <div class="lie-badge-wrap">
+            <div class="lie-badge lie-safe" id="riskBadge">FAVORABLE</div>
+            <div class="lie-type" id="lieType">Fairway Lie</div>
+            <div class="lie-summary" id="lieSummary">Short grass, clean contact expected</div>
+          </div>
+        </div>
+
+        <!-- Photo with SVG overlay -->
+        <div class="photo-analysis-wrap" id="photoWrap" style="display:none;">
+          <img class="photo-analysis-img" id="resultImg" src="" alt="Your lie">
+          <svg class="photo-overlay-svg" id="overlaySvg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid">
+          <div class="stat-pill">
+            <div class="stat-value" id="statAdjust">—</div>
+            <div class="stat-label">Aim Adjust</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-value" id="statDistance">—</div>
+            <div class="stat-label">Distance Effect</div>
+          </div>
+          <div class="stat-pill">
+            <div class="stat-value" id="statRisk">—</div>
+            <div class="stat-label">Risk Level</div>
+          </div>
+        </div>
+
+        <!-- Advice -->
+        <div class="advice-body" id="adviceBody"></div>
+
+        <button class="reset-btn" onclick="resetLie()">↩ Read Another Lie</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = localStorage.getItem('caddie_api_base') || 'https://mycaddieai.golf';
+let currentPhotoBase64 = null;
+
+function triggerUpload() { document.getElementById('lieFileInput').click(); }
+
+function handlePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { alert('Photo must be under 10MB.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentPhotoBase64 = e.target.result;
+    document.getElementById('lieImg').src = currentPhotoBase64;
+    document.getElementById('uploadZone').classList.add('has-image');
+    document.getElementById('analyzeBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto() {
+  currentPhotoBase64 = null;
+  document.getElementById('lieImg').src = '';
+  document.getElementById('uploadZone').classList.remove('has-image');
+  document.getElementById('lieFileInput').value = '';
+  document.getElementById('analyzeBtn').disabled = true;
+}
+
+async function analyzeLie() {
+  if (!currentPhotoBase64) return;
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  document.getElementById('analyzeBtnText').textContent = 'Analyzing...';
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('loadingState').classList.add('visible');
+
+  const context = {
+    distance: document.getElementById('distancePin').value,
+    club: document.getElementById('intendedClub').value,
+    shotShape: document.getElementById('shotShape').value,
+    wind: document.getElementById('wind').value
+  };
+
+  try {
+    const token = localStorage.getItem('caddie_token') || '';
+    const imageData = currentPhotoBase64.split(',')[1];
+    const mediaType = currentPhotoBase64.split(';')[0].split(':')[1];
+
+    const res = await fetch(`${API_BASE}/api/lie-whisperer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ image: { data: imageData, mediaType }, context })
+    });
+
+    const json = await res.json();
+
+    if (res.status === 402 || json.error === 'free_limit_reached') {
+      document.getElementById('loadingState').classList.remove('visible');
+      document.getElementById('emptyState').style.display = 'flex';
+      document.getElementById('paywallModal').classList.add('open');
+      return;
+    }
+
+    if (!res.ok) {
+      document.getElementById('loadingState').classList.remove('visible');
+      document.getElementById('emptyState').style.display = 'flex';
+      alert(json.error || 'Something went wrong. Please try again.');
+      return;
+    }
+
+    const data = typeof json.analysis === 'string'
+      ? JSON.parse(json.analysis.replace(/```json|```/g, '').trim())
+      : json.analysis;
+
+    renderResult(data);
+  } catch(e) {
+    try {
+      const imageData = currentPhotoBase64.split(',')[1];
+      const mediaType = currentPhotoBase64.split(';')[0].split(':')[1];
+      const data = await callDirectFallback(imageData, mediaType, context);
+      renderResult(data);
+    } catch(err) {
+      document.getElementById('loadingState').classList.remove('visible');
+      document.getElementById('emptyState').style.display = 'flex';
+      alert('Analysis failed. Please try again.');
+    }
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  document.getElementById('analyzeBtnText').textContent = '🌿 READ MY LIE';
+  btn.disabled = false;
+}
+
+async function callDirectFallback(imageData, mediaType, context) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1200,
+      system: getLieSystemPrompt(),
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageData } },
+          { type: 'text', text: `Read this golf lie. Context: distance to pin: ${context.distance}, intended club: ${context.club}, shot shape goal: ${context.shotShape}, wind: ${context.wind}. Give me tactical advice.` }
+        ]
+      }]
+    })
+  });
+  const d = await res.json();
+  if (d.error) throw new Error(d.error.message);
+  return JSON.parse(d.content[0].text.replace(/```json|```/g, '').trim());
+}
+
+function getLieSystemPrompt() {
+  return `You are Caddie AI's tactical lie reader — an elite caddie with 25 years of experience reading lies for tour players. You look at a photo of a golf ball in grass and immediately calculate how the lie will affect the shot.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "lieType": "Short name of the lie (e.g. 'Thick Rough', 'Tight Fairway', 'Fluffy Lie', 'Bare Lie', 'Upslope', 'Downslope', 'Deep Rough')",
+  "riskLevel": "safe|caution|danger",
+  "summary": "One sentence describing what you see and the key challenge",
+  "aimAdjust": "+5 yds R",
+  "distanceEffect": "-15%",
+  "riskLabel": "Low|Medium|High",
+  "grassType": "Short fairway|Light rough|Thick rough|Deep rough|Bare/tight|Sand edge",
+  "flierRisk": true or false,
+  "spinEffect": "normal|reduced|increased",
+  "advice": [
+    {
+      "type": "warn|tip|info|go",
+      "title": "Short title",
+      "text": "Detailed tactical advice. Be specific — mention exact adjustments."
+    }
+  ],
+  "shotRecommendation": "Specific 1-2 sentence shot recommendation — club choice, ball position, swing thought.",
+  "aggressive": true or false
+}
+
+Rules:
+- riskLevel: 'safe' = clean lie, 'caution' = some grass/slope, 'danger' = deep rough/bad angle
+- aimAdjust: how much and which direction to aim. e.g. '+8 yds R' or 'Straight'
+- distanceEffect: percentage impact on distance. e.g. '-20%' or '+5%' or 'Neutral'
+- Include 2-4 advice blocks. Types: warn=red danger, tip=gold warning, info=blue info, go=green positive
+- Be SPECIFIC about what you see. Reference grass length, density, ball sitting up or down.
+- JSON only, no other text.`;
+}
+
+function renderResult(data) {
+  document.getElementById('loadingState').classList.remove('visible');
+
+  // Risk badge
+  const badge = document.getElementById('riskBadge');
+  const riskMap = { safe: ['FAVORABLE', 'lie-safe'], caution: ['USE CAUTION', 'lie-caution'], danger: ['DANGER LIE', 'lie-danger'] };
+  const [label, cls] = riskMap[data.riskLevel] || riskMap.caution;
+  badge.textContent = label;
+  badge.className = `lie-badge ${cls}`;
+
+  document.getElementById('lieType').textContent = data.lieType || 'Unknown Lie';
+  document.getElementById('lieSummary').textContent = data.summary || '';
+
+  // Show photo with overlay
+  if (currentPhotoBase64) {
+    document.getElementById('resultImg').src = currentPhotoBase64;
+    document.getElementById('photoWrap').style.display = 'block';
+    drawOverlay(data);
+  }
+
+  // Stats
+  document.getElementById('statAdjust').textContent = data.aimAdjust || '—';
+  document.getElementById('statDistance').textContent = data.distanceEffect || '—';
+  document.getElementById('statRisk').textContent = data.riskLabel || '—';
+
+  // Advice blocks
+  const body = document.getElementById('adviceBody');
+  body.innerHTML = '';
+
+  (data.advice || []).forEach(a => {
+    const div = document.createElement('div');
+    div.className = `advice-block ${a.type || 'info'}`;
+    div.innerHTML = `<div class="advice-title">${a.title || ''}</div><div class="advice-text">${a.text || ''}</div>`;
+    body.appendChild(div);
+  });
+
+  // Shot recommendation
+  if (data.shotRecommendation) {
+    const recDiv = document.createElement('div');
+    recDiv.className = 'advice-block go';
+    recDiv.innerHTML = `<div class="advice-title">🏌️ Your Shot Plan</div><div class="advice-text"><strong>${data.aggressive ? 'Go for it.' : 'Play it safe.'}</strong> ${data.shotRecommendation}</div>`;
+    body.appendChild(recDiv);
+  }
+
+  document.getElementById('resultCard').classList.add('visible');
+  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function drawOverlay(data) {
+  const svg = document.getElementById('overlaySvg');
+  svg.innerHTML = '';
+
+  // Draw aim line based on adjust
+  const cx = 200, cy = 220; // ball position (approximate center-bottom)
+  const targetX = cx + (data.aimAdjust?.includes('R') ? 30 : data.aimAdjust?.includes('L') ? -30 : 0);
+  const targetY = 30;
+
+  // Aim line
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+  line.setAttribute('x2', targetX); line.setAttribute('y2', targetY);
+  line.setAttribute('stroke', '#d4a94a');
+  line.setAttribute('stroke-width', '2.5');
+  line.setAttribute('stroke-dasharray', '8,4');
+  line.setAttribute('opacity', '0.85');
+  svg.appendChild(line);
+
+  // Arrowhead
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  const angle = Math.atan2(targetY - cy, targetX - cx);
+  const ax = targetX, ay = targetY;
+  const pts = [
+    [ax, ay],
+    [ax - 10 * Math.cos(angle - 0.4), ay - 10 * Math.sin(angle - 0.4)],
+    [ax - 10 * Math.cos(angle + 0.4), ay - 10 * Math.sin(angle + 0.4)]
+  ].map(p => p.join(',')).join(' ');
+  arrow.setAttribute('points', pts);
+  arrow.setAttribute('fill', '#d4a94a');
+  arrow.setAttribute('opacity', '0.85');
+  svg.appendChild(arrow);
+
+  // Ball circle
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
+  circle.setAttribute('r', '10');
+  circle.setAttribute('fill', 'none');
+  circle.setAttribute('stroke', data.riskLevel === 'danger' ? '#e74c3c' : '#2ecc71');
+  circle.setAttribute('stroke-width', '2.5');
+  circle.setAttribute('opacity', '0.9');
+  svg.appendChild(circle);
+
+  // Label
+  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  text.setAttribute('x', targetX + 8); text.setAttribute('y', targetY + 4);
+  text.setAttribute('fill', '#d4a94a'); text.setAttribute('font-size', '11');
+  text.setAttribute('font-family', 'DM Sans, sans-serif');
+  text.setAttribute('opacity', '0.9');
+  text.textContent = data.aimAdjust || 'Aim';
+  svg.appendChild(text);
+}
+
+function resetLie() {
+  removePhoto();
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('emptyState').style.display = 'flex';
+}
+
+window.addEventListener('load', () => {
+  const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+  if (user.name) document.getElementById('navUserName').textContent = user.name.split(' ')[0];
+  const badge = document.getElementById('tierBadge');
+  if (user.isPro) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+  else { badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free'; }
+});
+</script>
+
+<div class="modal-overlay" id="paywallModal">
+  <div class="modal-box">
+    <div class="modal-icon">⛳</div>
+    <div class="modal-title">Go <span>Pro</span></div>
+    <div class="modal-sub">You've used your 2 free questions today. All 4 features share the limit.</div>
+    <div class="modal-price"><sup>$</sup>9<sub>/mo</sub></div>
+    <ul class="modal-feats">
+      <li>Unlimited Ask Caddie questions</li>
+      <li>Unlimited Swing Detective diagnoses</li>
+      <li>Unlimited Lie Whisperer reads</li>
+      <li>Unlimited Swing Analyzer photos</li>
+      <li>Cancel anytime</li>
+    </ul>
+    <button class="btn-go-pro" onclick="openUpgradeModal()">Upgrade to Pro — $9/mo</button>
+    <button class="btn-dismiss" onclick="document.getElementById('paywallModal').classList.remove('open')">Maybe later</button>
+  </div>
+</div>
+
+
+<!-- Inline Payment Modal -->
+<div class="modal-overlay" id="upgradeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;align-items:center;justify-content:center;padding:1.5rem;backdrop-filter:blur(8px);">
+  <div style="background:#122218;border:1px solid rgba(212,169,74,0.35);border-radius:16px;padding:2rem;max-width:400px;width:100%;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⛳</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:0.4rem;">Go <span style="color:#d4a94a;">Pro</span></div>
+    <div style="font-size:0.83rem;color:rgba(240,234,216,0.45);margin-bottom:1rem;line-height:1.5;">Unlimited access to all 4 features. Cancel anytime.</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#d4a94a;line-height:1;margin-bottom:1rem;"><sup style="font-size:1.1rem;">$</sup>9<sub style="font-size:0.9rem;color:rgba(240,234,216,0.45);">/mo</sub></div>
+    <div id="inline-pay-error" style="color:#e74c3c;font-size:0.8rem;margin-bottom:0.6rem;display:none;text-align:left;"></div>
+    <div id="inline-card-element" style="background:#1a2e20;border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:0.9rem 1rem;margin-bottom:1rem;text-align:left;"></div>
+    <button id="inline-pay-btn" onclick="handleInlinePayment()" style="width:100%;background:#d4a94a;color:#0b1a12;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;padding:0.9rem;cursor:pointer;margin-bottom:0.8rem;">Subscribe — $9/mo</button>
+    <button onclick="closeUpgradeModal()" style="background:none;border:none;color:rgba(240,234,216,0.45);font-size:0.78rem;cursor:pointer;text-decoration:underline;font-family:'DM Sans',sans-serif;">Cancel</button>
+  </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+  const STRIPE_PK = 'pk_live_51TLAzuLnJDmWQ4Zy8tCqe8DIozY86WDJe7i8Nbr8HlCEYxdhtqZw9nLeM2d6BjGVZV7ZfSDTZchVJxb8otDj3q1M00jP4GU59h';
+  const API = 'https://mycaddieai.golf';
+  let _stripe = null;
+  let _card = null;
+
+  window.openUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'flex';
+    document.getElementById('paywallModal')?.classList.remove('open');
+    if (!_stripe) {
+      try {
+        _stripe = Stripe(STRIPE_PK);
+        const els = _stripe.elements();
+        _card = els.create('card', {
+          style: { base: { color:'#f0ead8', fontFamily:'DM Sans,sans-serif', fontSize:'16px', '::placeholder':{ color:'rgba(240,234,216,0.4)' } } }
+        });
+        _card.mount('#inline-card-element');
+      } catch(e) { console.error('Stripe init error', e); }
+    }
+  };
+
+  window.closeUpgradeModal = function() {
+    document.getElementById('upgradeModal').style.display = 'none';
+  };
+
+  window.handleInlinePayment = async function() {
+    if (!_stripe || !_card) { alert('Payment system loading. Please try again.'); return; }
+    const btn = document.getElementById('inline-pay-btn');
+    const err = document.getElementById('inline-pay-error');
+    btn.disabled = true; btn.textContent = 'Processing...';
+    err.style.display = 'none';
+
+    const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+    const token = localStorage.getItem('caddie_token') || '';
+
+    try {
+      const { paymentMethod, error } = await _stripe.createPaymentMethod({
+        type: 'card', card: _card,
+        billing_details: { email: user.email, name: user.name }
+      });
+
+      if (error) {
+        err.textContent = error.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+        return;
+      }
+
+      const res = await fetch(`${API}/api/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ paymentMethodId: paymentMethod.id })
+      });
+
+      const data = await res.json();
+
+      if (data.requiresAction) {
+        const { error: ce } = await _stripe.confirmCardPayment(data.clientSecret);
+        if (ce) {
+          err.textContent = ce.message; err.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+          return;
+        }
+      }
+
+      if (data.success) {
+        user.isPro = true;
+        localStorage.setItem('caddie_user', JSON.stringify(user));
+        closeUpgradeModal();
+        // Update tier badge
+        const badge = document.getElementById('tierBadge');
+        if (badge) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+        // Hide free banner
+        const fb = document.getElementById('freeBanner');
+        if (fb) fb.style.display = 'none';
+        // Hide paywallModal if open
+        const pm = document.getElementById('paywallModal');
+        if (pm) pm.classList.remove('open');
+        alert('🎉 Welcome to Pro! Unlimited access unlocked. Refreshing...');
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        err.textContent = data.error || 'Payment failed. Please check your card.';
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+      }
+    } catch(e) {
+      err.textContent = 'Something went wrong. Please try again.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Subscribe — $9/mo';
+    }
+  };
+
+  // Close on overlay click
+  document.getElementById('upgradeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUpgradeModal();
+  });
+})();
+</script>
+
+</body>
+</html>
