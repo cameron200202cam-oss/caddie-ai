@@ -1506,6 +1506,18 @@ function renderFallback(text, uploadedPhotos, photoCount) {
     if (e.target === this) closeUpgradeModal();
   });
 })();
+
+// Load user info into nav on page load
+window.addEventListener('load', () => {
+  const user = JSON.parse(localStorage.getItem('caddie_user') || '{}');
+  const nameEl = document.getElementById('navUserName');
+  const badge = document.getElementById('tierBadge');
+  if (nameEl && user.name) nameEl.textContent = user.name.split(' ')[0];
+  if (badge) {
+    if (user.isPro) { badge.textContent = '⚡ PRO'; badge.className = 'tier-badge tier-pro'; }
+    else { badge.textContent = 'FREE'; badge.className = 'tier-badge tier-free'; }
+  }
+});
 </script>
 
 </body>
