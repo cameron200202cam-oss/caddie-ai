@@ -29,7 +29,9 @@ function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emai
 function validatePassword(p) { return typeof p === "string" && p.length >= 6 && p.length <= 128; }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin || "";
+  const allowed = ["https://mycaddieai.golf", "https://caddie-ai-nine.vercel.app"];
+  res.setHeader("Access-Control-Allow-Origin", allowed.includes(origin) ? origin : allowed[0]);
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("X-Content-Type-Options", "nosniff");

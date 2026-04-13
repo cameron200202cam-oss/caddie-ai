@@ -86,7 +86,7 @@ JWT_SECRET               = (make up any long random string, 32+ chars)
 1. Open `/public/index.html`
 2. Find this at the top:
    ```
-   const API_BASE = 'https://your-app.vercel.app';
+   const API_BASE = 'https://mycaddieai.golf';
    const STRIPE_PK = 'pk_live_your_stripe_publishable_key';
    ```
 3. Replace with your real Vercel URL and Stripe publishable key
@@ -101,7 +101,7 @@ This makes sure cancelled subscriptions lose Pro access.
 
 1. In Stripe Dashboard → **Developers → Webhooks**
 2. Click **Add endpoint**
-3. URL: `https://your-vercel-url.vercel.app/api/webhook`
+3. URL: `https://mycaddieai.golf/api/webhook`
 4. Events to listen for:
    - `customer.subscription.created`
    - `customer.subscription.deleted`
