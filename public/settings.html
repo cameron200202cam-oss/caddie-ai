@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18088087598"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18088087598');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Caddie AI — Settings</title>
@@ -191,7 +199,7 @@
     <div class="section-title">Subscription</div>
     <div class="danger-zone">
       <div class="danger-title">Cancel Subscription</div>
-      <div class="danger-desc">Your Pro access will remain active until the end of your current billing period. After that you'll revert to the free plan.</div>
+      <div class="danger-desc">Your Pro access will be removed <strong>immediately</strong>. You will lose access to all Pro features right away and will not be refunded for the current period.</div>
       <button class="btn btn-danger" onclick="openCancelConfirm()">Cancel Subscription</button>
     </div>
   </div>
@@ -421,7 +429,7 @@ async function handleCancelSubscription() {
       currentUser.isPro = false;
       localStorage.setItem('caddie_user', JSON.stringify(currentUser));
       closeCancelConfirm();
-      showSuccess('Subscription cancelled. You have access until the end of your billing period.');
+      showSuccess('Subscription cancelled. Your Pro access has been removed.');
       document.getElementById('proPlanCard').style.display = 'none';
       document.getElementById('dangerZone').style.display = 'none';
       document.getElementById('freePlanCard').style.display = 'block';

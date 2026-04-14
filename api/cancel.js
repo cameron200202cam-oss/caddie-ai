@@ -1,4 +1,4 @@
-// api/cancel.js — Cancel Stripe subscription
+// api/cancel.js — Cancel Stripe subscription immediately
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const jwt = require("jsonwebtoken");
@@ -35,18 +35,16 @@ module.exports = async function handler(req, res) {
     if (!user.is_pro) return res.status(400).json({ error: "No active subscription found" });
     if (!user.stripe_subscription_id) return res.status(400).json({ error: "No subscription ID found" });
 
-    // Cancel at period end (they keep access until billing cycle ends)
-    await stripe.subscriptions.update(user.stripe_subscription_id, {
-      cancel_at_period_end: true
-    });
+    // Cancel immediately — no grace period
+    await stripe.subscriptions.cancel(user.stripe_subscription_id);
 
-    // Mark as cancelled in DB (webhook will fully revoke when period ends)
+    // Revoke Pro access immediately
     await query(
-      "UPDATE users SET is_pro = false WHERE id = $1",
+      "UPDATE users SET is_pro = false, stripe_subscription_id = null WHERE id = $1",
       [userId]
     );
 
-    return res.status(200).json({ success: true, message: "Subscription cancelled. Access continues until end of billing period." });
+    return res.status(200).json({ success: true });
 
   } catch (error) {
     console.error("Cancel error:", error);
